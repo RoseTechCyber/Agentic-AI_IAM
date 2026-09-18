@@ -6,12 +6,10 @@ services:
     environment:
       DATABASE_URL: sqlite:///./data/iam.db
       RISK_THRESHOLD: "70"
-      WRONG_TIME_GRACE_MINUTES: "30"
       LLM_BASE_URL: ""
       LLM_MODEL: ""
-      EMBEDDING_BASE_URL: ""
-      EMBEDDING_MODEL: ""
     volumes:
       - iam-data:/app/data
+
 volumes:
   iam-data:

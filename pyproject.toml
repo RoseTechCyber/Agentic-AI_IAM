@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "agentic-ai-iam"
-version = "0.1.0"
-description = "Self-hostable multi-agent IAM governance and anomaly detection POC"
+version = "0.2.0"
+description = "Self-hosted multi-agent IAM anomaly detection POC"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0,<1",
@@ -11,11 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-postgres = ["psycopg[binary]>=3.2.0,<4"]
-dev = ["pytest>=8.0.0,<9", "ruff>=0.6.0,<1"]
+dev = [
+  "pytest>=8.0.0,<9",
+]
 
-[tool.ruff]
-line-length = 100
+[tool.setuptools]
+packages = ["iam"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
