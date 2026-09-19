@@ -11,11 +11,11 @@ from .workflow import IAMWorkflow
 
 
 app = FastAPI(
-    title="Agentic AI IAM",
+    title="RoseTech Agentic AI Identity and ACCess Management App",
     version="0.2.0",
     description=(
-        "Database-driven multi-agent IAM governance "
-        "and anomaly detection POC"
+        "Database-driven Multi-Agent IAM Governance "
+        "and Anomaly Detection POC"
     ),
 )
 
@@ -37,6 +37,15 @@ class AccessEvent(BaseModel):
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "name": "RoseTech Agentic AI Identity and ACCess Management App",
+        "status": "ok",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 @app.get("/policies")
