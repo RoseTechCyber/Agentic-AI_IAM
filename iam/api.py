@@ -11,7 +11,7 @@ from .workflow import IAMWorkflow
 
 
 app = FastAPI(
-    title="RoseTech Agentic AI Identity and ACCess Management App",
+    title="RoseTech Agentic AI Identity and Access Management App",
     version="0.2.0",
     description=(
         "Database-driven Multi-Agent IAM Governance "
@@ -41,7 +41,7 @@ def health() -> dict[str, str]:
 @app.get("/")
 def root() -> dict[str, str]:
     return {
-        "name": "RoseTech Agentic AI Identity and ACCess Management App",
+        "name": "RoseTech Agentic AI Identity and Access Management App",
         "status": "ok",
         "docs": "/docs",
         "health": "/health",
