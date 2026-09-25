@@ -14,7 +14,7 @@ class Repository:
     def __init__(self, database_url: str | None = None) -> None:
         self.database_url = database_url or os.getenv(
             "DATABASE_URL",
-            "sqlite:///./data/iam.db",
+            "sqlite:///./data/schemas/iam_datastore.db",
         )
 
         if not self.database_url.startswith("sqlite:///"):
