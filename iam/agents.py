@@ -25,8 +25,8 @@ class DatabaseIQ:
             """
             SELECT r.*
             FROM roles r
-            JOIN user_roles ur ON ur.role_id=r.id
-            WHERE ur.user_id=?
+            JOIN identity_roles ir ON ir.role_id = r.id
+            WHERE ir.identity_id=?
             """,
             (user_id,),
         )
