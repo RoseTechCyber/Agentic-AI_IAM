@@ -1,21 +1,57 @@
-# Agentic AI IAM
+# RoseTech Agentic-AI IAM POC
 
-Self-hostable proof of concept for identity lifecycle governance,
-authentication, authorization, audit analysis, and anomaly response.
+A lightweight proof-of-concept identity and access management (IAM) service that combines:
 
-## Included
+- a canonical SQLite datastore
+- event-driven queueing via SQLite triggers
+- policy and playbook evaluation
+- anomaly detection and case generation
+- FastAPI endpoints for secure identity evaluation
 
-- FastAPI API and Swagger UI
-- WorkIQ, DatabaseIQ, FoundryIQ, and WebIQ boundaries
-- Database-backed users, roles, entitlements, policies, and playbooks
-- Identification, authentication, authorization, and audit stages
-- Threshold-based risk scoring
-- Wrong-time check-in detection
-- Access-matrix evaluation
-- Local policy retrieval/RAG
-- Optional self-hosted OpenAI-compatible LLM adapter
-- Docker and GitHub Actions test configuration
+This project demonstrates a simplified but realistic agentic IAM pattern for:
+- identity evaluation
+- access matrix enforcement
+- anomaly scoring
+- event queue processing
+- policy-driven response workflows
 
+---
+
+## Overview
+
+This POC models the following flow:
+
+1. A user action is evaluated
+2. Access is checked against role + permission entitlements
+3. Risk is scored against policy rules
+4. If the score crosses a configured threshold:
+   - an anomaly case is created
+   - a recommended policy action is generated
+   - the event is enqueued for downstream processing
+5. The event queue can be consumed by a worker or orchestration service
+
+---
+
+## Core architecture
+
+```text
+Client / API
+   ↓
+FastAPI app
+   ↓
+Repository / DB access layer
+   ↓
+SQLite datastore
+   ├── identities
+   ├── roles
+   ├── permissions
+   ├── identity_roles
+   ├── role_permissions
+   ├── access_events
+   ├── anomaly_cases
+   ├── policies
+   ├── playbooks
+   └── event_queue
 ## Run locally
 
 ```bash
