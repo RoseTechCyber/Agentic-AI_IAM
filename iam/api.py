@@ -12,10 +12,9 @@ from .workflow import IAMWorkflow
 
 app = FastAPI(
     title="RoseTech Agentic AI Identity and Access Management App",
-    version="0.2.0",
+    version="0.3.0",
     description=(
-        "Database-driven Multi-Agent IAM Governance "
-        "and Anomaly Detection POC"
+        "Canonical datastore-driven IAM governance and anomaly detection POC"
     ),
 )
 
@@ -25,8 +24,10 @@ workflow = IAMWorkflow(repo)
 
 class AccessEvent(BaseModel):
     user_id: str
+    action: str | None = None
     event_type: str = "login"
     source_ip: str | None = None
+    device_id: str | None = None
     device_trust: float = Field(0, ge=0, le=1)
     mfa_satisfied: bool = False
     requested_resource: str | None = None
@@ -37,6 +38,7 @@ class AccessEvent(BaseModel):
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
 
 @app.get("/")
 def root() -> dict[str, str]:
@@ -69,10 +71,7 @@ def playbooks(stage: str | None = None):
 def access_matrix(user_id: str):
     try:
         context = workflow.db.user_context(user_id)
-        return {
-            **context,
-            "matrix": repo.access_matrix(user_id),
-        }
+        return {**context, "matrix": repo.access_matrix(user_id)}
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
 
@@ -86,26 +85,15 @@ def evaluate(event: AccessEvent):
 
 
 @app.get("/cases")
-def cases(
-    status: str | None = Query(default=None),
-):
+def cases(status: str | None = Query(default=None)):
     sql = "SELECT * FROM anomaly_cases"
-
     if status:
         sql += " WHERE status=?"
-
     sql += " ORDER BY created_at DESC"
 
-    rows = repo.execute(
-        sql,
-        (status,) if status else (),
-    )
-
+    rows = repo.execute(sql, (status,) if status else ())
     for row in rows:
-        row["reasons"] = json.loads(
-            row.pop("reasons_json")
-        )
-
+        row["reasons"] = json.loads(row.pop("reasons_json"))
     return rows
 
 
@@ -121,8 +109,9 @@ def rag_search(
 def demo_run():
     return workflow.evaluate(
         {
-            "user_id": "u-100",
+            "user_id": "usr-00001",
             "event_type": "login",
+            "action": "login",
             "source_ip": "203.0.113.10",
             "device_trust": 0.2,
             "mfa_satisfied": False,

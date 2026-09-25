@@ -35,10 +35,7 @@ class IAMWorkflow:
         self.foundry = FoundryIQ()
         self.web = WebIQ()
         self.rag = LocalRAG(self.repo)
-
-        self.threshold = float(
-            os.getenv("RISK_THRESHOLD", "70")
-        )
+        self.threshold = float(os.getenv("RISK_THRESHOLD", "70"))
 
     @staticmethod
     def stage_for(event_type: str) -> str:
@@ -57,41 +54,34 @@ class IAMWorkflow:
         timezone_name: str,
     ) -> tuple[int, int]:
         try:
-            local = occurred.astimezone(
-                ZoneInfo(timezone_name)
-            )
+            local = occurred.astimezone(ZoneInfo(timezone_name))
         except (ZoneInfoNotFoundError, ValueError):
             local = occurred.astimezone(timezone.utc)
-
         return local.hour, local.minute
 
-    def evaluate(
-        self,
-        event: dict[str, Any],
-    ) -> dict[str, Any]:
+    def evaluate(self, event: dict[str, Any]) -> dict[str, Any]:
         context = self.db.user_context(event["user_id"])
 
         occurred = datetime.fromisoformat(
             event["occurred_at"].replace("Z", "+00:00")
         )
-
         if occurred.tzinfo is None:
             occurred = occurred.replace(tzinfo=timezone.utc)
 
         event_type = event.get("event_type", "login")
         stage = self.stage_for(event_type)
+        metadata = event.get("metadata", {})
+        resource = event.get("requested_resource")
+        action = event.get("action") or metadata.get("action") or event_type
 
         score = 0.0
         reasons: list[str] = []
 
-        if not context["user"]["active"]:
+        if context["user"]["status"] != "active":
             score += 100
             reasons.append("inactive identity")
 
-        if (
-            stage == "authentication"
-            and not event.get("mfa_satisfied", False)
-        ):
+        if stage == "authentication" and not event.get("mfa_satisfied", False):
             score += 25
             reasons.append("MFA not satisfied")
 
@@ -99,83 +89,60 @@ class IAMWorkflow:
             score += 20
             reasons.append("low device trust")
 
-        resource = event.get("requested_resource")
-
         if resource and not any(
-            row["resource"] == resource
-            for row in context["entitlements"]
+            row["resource"] == resource for row in context["entitlements"]
         ):
             score += 35
-            reasons.append(
-                "resource is outside effective authorization matrix"
-            )
+            reasons.append("resource is outside effective authorization matrix")
 
-        metadata = event.get("metadata", {})
-        shift = metadata.get(
-            "shift",
-            {
-                "start": 7,
-                "end": 19,
-            },
-        )
-
+        shift = metadata.get("shift", {"start": 7, "end": 19})
         local_hour, _ = self.local_time(
             occurred,
             context["user"].get("timezone", "UTC"),
         )
 
-        outside_shift = (
-            local_hour < shift["start"]
-            or local_hour >= shift["end"]
-        )
-
-        if outside_shift:
+        if local_hour < shift["start"] or local_hour >= shift["end"]:
             score += 30
             reasons.append(
                 "wrong-time check-in outside "
-                f"{shift['start']:02d}:00-"
-                f"{shift['end']:02d}:00 local window"
+                f"{shift['start']:02d}:00-{shift['end']:02d}:00 local window"
             )
 
         score = clamp(score)
+        is_anomaly = score >= self.threshold
+        decision = "deny" if is_anomaly else "allow"
 
         event_id = self.repo.insert(
             "access_events",
             {
                 "id": str(uuid.uuid4()),
-                "user_id": event["user_id"],
+                "identity_id": event["user_id"],
                 "event_type": event_type,
+                "stage": stage,
+                "action": action,
+                "decision": decision,
                 "source_ip": event.get("source_ip"),
-                "device_trust": event.get("device_trust", 0),
-                "mfa_satisfied": int(
-                    event.get("mfa_satisfied", False)
-                ),
+                "device_id": event.get("device_id"),
                 "requested_resource": resource,
+                "device_trust": event.get("device_trust", 0),
+                "mfa_satisfied": int(event.get("mfa_satisfied", False)),
                 "occurred_at": occurred.isoformat(),
                 "metadata_json": json.dumps(metadata),
             },
         )
 
-        is_anomaly = score >= self.threshold
-
         result: dict[str, Any] = {
             "event_id": event_id,
             "user_id": event["user_id"],
             "stage": stage,
+            "decision": decision,
             "risk_score": score,
             "threshold": self.threshold,
             "anomaly": is_anomaly,
             "reasons": reasons,
             "policy_context": self.work.policy_context(stage),
-            "web_context": self.web.enrich(
-                event.get("source_ip")
-            ),
-            "agents": [
-                "WorkIQ",
-                "FoundryIQ",
-                "DatabaseIQ",
-                "WebIQ",
-            ],
+            "web_context": self.web.enrich(event.get("source_ip")),
+            "agents": ["WorkIQ", "FoundryIQ", "DatabaseIQ", "WebIQ"],
             "case": None,
         }
 
@@ -189,15 +156,9 @@ class IAMWorkflow:
             if score >= 75
             else "medium"
         )
-
         evidence = self.rag.search(" ".join(reasons))
-
         recommendation = self.foundry.explain(
-            {
-                "score": score,
-                "stage": stage,
-                "reasons": reasons,
-            },
+            {"score": score, "stage": stage, "reasons": reasons},
             evidence,
         )
 
@@ -209,19 +170,15 @@ class IAMWorkflow:
             {
                 "id": str(uuid.uuid4()),
                 "event_id": event_id,
-                "user_id": event["user_id"],
+                "identity_id": event["user_id"],
                 "stage": stage,
-                "score": score,
+                "risk_score": score,
                 "severity": severity,
                 "reasons_json": json.dumps(reasons),
                 "recommendation": recommendation,
-                "playbook_id": (
-                    selected["id"] if selected else None
-                ),
+                "playbook_id": selected["id"] if selected else None,
                 "status": "open",
-                "created_at": datetime.now(
-                    timezone.utc
-                ).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
 
@@ -232,5 +189,4 @@ class IAMWorkflow:
             "playbook": selected,
             "retrieved_policies": evidence,
         }
-
         return result

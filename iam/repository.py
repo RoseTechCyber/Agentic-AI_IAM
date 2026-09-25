@@ -33,7 +33,6 @@ class Repository:
     def connection(self) -> Iterator[sqlite3.Connection]:
         db = sqlite3.connect(self.path)
         db.row_factory = sqlite3.Row
-
         try:
             yield db
             db.commit()
@@ -52,11 +51,9 @@ class Repository:
 
         with self.connection() as db:
             db.execute(
-                f"INSERT OR REPLACE INTO {table} "
-                f"({columns}) VALUES ({placeholders})",
+                f"INSERT OR REPLACE INTO {table} ({columns}) VALUES ({placeholders})",
                 tuple(values.values()),
             )
-
         return str(item_id)
 
     def execute(
@@ -65,10 +62,7 @@ class Repository:
         params: tuple[Any, ...] = (),
     ) -> list[dict[str, Any]]:
         with self.connection() as db:
-            return [
-                dict(row)
-                for row in db.execute(sql, params).fetchall()
-            ]
+            return [dict(row) for row in db.execute(sql, params).fetchall()]
 
     def one(
         self,
@@ -80,14 +74,23 @@ class Repository:
 
     def user(self, user_id: str) -> dict[str, Any] | None:
         return self.one(
-            "SELECT * FROM users WHERE id=?",
+            """
+            SELECT
+                id,
+                username,
+                display_name,
+                department,
+                timezone,
+                status,
+                CASE WHEN status = 'active' THEN 1 ELSE 0 END AS active,
+                created_at
+            FROM identities
+            WHERE id=?
+            """,
             (user_id,),
         )
 
-    def policies(
-        self,
-        stage: str | None = None,
-    ) -> list[dict[str, Any]]:
+    def policies(self, stage: str | None = None) -> list[dict[str, Any]]:
         if stage:
             return self.execute(
                 """
@@ -106,16 +109,12 @@ class Repository:
             """
         )
 
-    def playbooks(
-        self,
-        stage: str | None = None,
-    ) -> list[dict[str, Any]]:
+    def playbooks(self, stage: str | None = None) -> list[dict[str, Any]]:
         if stage:
             return self.execute(
                 """
                 SELECT * FROM playbooks
-                WHERE enabled=1
-                  AND (stage=? OR stage='any')
+                WHERE enabled=1 AND (stage=? OR stage='any')
                 ORDER BY priority DESC
                 """,
                 (stage,),
@@ -137,7 +136,7 @@ class Repository:
         return self.execute(
             """
             SELECT * FROM access_events
-            WHERE user_id=?
+            WHERE identity_id=?
             ORDER BY occurred_at DESC
             LIMIT ?
             """,
@@ -148,18 +147,18 @@ class Repository:
         return self.execute(
             """
             SELECT
-                r.id AS role_id,
+                ir.role_id,
                 r.name AS role_name,
-                e.id AS entitlement_id,
-                e.resource,
-                e.action,
-                e.sensitivity
-            FROM user_roles ur
-            JOIN roles r ON r.id=ur.role_id
-            JOIN role_entitlements re ON re.role_id=r.id
-            JOIN entitlements e ON e.id=re.entitlement_id
-            WHERE ur.user_id=?
-            ORDER BY e.resource, e.action
+                p.id AS entitlement_id,
+                p.resource,
+                p.action,
+                p.sensitivity
+            FROM identity_roles ir
+            JOIN roles r ON r.id = ir.role_id
+            JOIN role_permissions rp ON rp.role_id = r.id
+            JOIN permissions p ON p.id = rp.permission_id
+            WHERE ir.identity_id=?
+            ORDER BY p.resource, p.action
             """,
             (user_id,),
         )
