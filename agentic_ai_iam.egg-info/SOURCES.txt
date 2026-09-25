@@ -8,7 +8,10 @@ agentic_ai_iam.egg-info/top_level.txt
 iam/__init__.py
 iam/agents.py
 iam/api.py
+iam/orchestrator.py
 iam/repository.py
 iam/seed.py
+iam/synthetic_seed.py
 iam/workflow.py
+iam/workflow_extension.py
 tests/test_workflow.py
