@@ -156,7 +156,7 @@ class IAMWorkflow:
             if score >= 75
             else "medium"
         )
-        evidence = self.rag.search(" ".join(reasons))
+        evidence = self.rag.search(" ".join(reasons), stage=stage)
         recommendation = self.foundry.explain(
             {"score": score, "stage": stage, "reasons": reasons},
             evidence,

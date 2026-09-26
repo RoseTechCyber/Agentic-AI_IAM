@@ -25,8 +25,8 @@ class DatabaseIQ:
             """
             SELECT r.*
             FROM roles r
-            JOIN identity_roles ir ON ir.role_id = r.id
-            WHERE ir.identity_id=?
+            JOIN user_roles ur ON ur.role_id=r.id
+            WHERE ur.user_id=?
             """,
             (user_id,),
         )
@@ -148,12 +148,20 @@ class FoundryIQ:
             return fallback
 
 
-@staticmethod
+class LocalRAG:
+    """
+    Dependency-free local retrieval over policy text.
+
+    Replace this adapter with pgvector, Qdrant, or OpenSearch when needed.
+    """
+
+    def __init__(self, repo: Repository) -> None:
+        self.repo = repo
+
+    @staticmethod
     def _tokens(text: str) -> set[str]:
-        # basic normalization: lowercase, strip punctuation, split on whitespace
-        # ignore very short tokens
         return {
-            word.lower().strip(".,:;()[]{}\"'`")
+            word.lower().strip(".,:;()[]{}")
             for word in text.split()
             if len(word) > 2
         }
@@ -162,37 +170,32 @@ class FoundryIQ:
         self,
         query: str,
         limit: int = 3,
-        stage: str | None = None,   # new optional stage filter
     ) -> list[dict[str, Any]]:
         query_tokens = self._tokens(query)
         scored: list[tuple[float, dict[str, Any]]] = []
 
-        sql = "SELECT id, name, stage, text, priority FROM policies WHERE enabled=1"
-        params: tuple = ()
-        if stage:
-            sql += " AND (stage=? OR stage='any')"
-            params = (stage,)
-
-        rows = self.repo.execute(sql, params)
+        rows = self.repo.execute(
+            """
+            SELECT id, name, stage, text
+            FROM policies
+            WHERE enabled=1
+            """
+        )
 
         for row in rows:
             document_tokens = self._tokens(row["text"])
-            # Jaccard similarity
-            score = 0.0
-            union = query_tokens | document_tokens
-            if union:
-                score = len(query_tokens & document_tokens) / len(union)
+            score = len(query_tokens & document_tokens) / max(
+                1,
+                len(query_tokens | document_tokens),
+            )
             scored.append((score, row))
 
-        # sort primarily by score, secondarily by policy priority so low-similarity but high-priority policies surface
-        scored.sort(key=lambda item: (item[0], item[1].get("priority", 0)), reverse=True)
+        scored.sort(key=lambda item: item[0], reverse=True)
 
-        results = []
-        for score, row in scored[:limit]:
-            results.append(
-                {
-                    **row,
-                    "similarity": round(score, 4),
-                }
-            )
-        return results
+        return [
+            {
+                **row,
+                "similarity": round(score, 4),
+            }
+            for score, row in scored[:limit]
+        ]

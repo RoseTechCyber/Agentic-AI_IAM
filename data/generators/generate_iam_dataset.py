@@ -1,121 +1,238 @@
-"""Build a synthetic SQLite database from data/schemas/iam_schema.sql.
-
-Run from the repository root:
-    python -m data.generate_iam_dataset --reset --users 100 --events 2000
-
-Only synthetic identities and documentation-only IP ranges are generated.
+#!/usr/bin/env python3
 """
-from __future__ import annotations
+Generate the canonical destructive rebuild + seed SQL at:
+  data/schemas/iam_datastore.sql
 
-import argparse
-import json
-import random
-import sqlite3
-from datetime import datetime, timedelta, timezone
+This script is authoritative for full DB rebuilds (DROP / CREATE / INSERT).
+Run it when you want the full seeded dataset; apply with sqlite3:
+  sqlite3 data/schemas/iam_datastore.db ".read data/schemas/iam_datastore.sql"
+"""
 from pathlib import Path
+from datetime import datetime, timezone
 
-ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT  / "schemas" / "iam_schema.sql"
-DEFAULT_DB = ROOT  / "schemas" / "iam_datastore.db"
-DEPARTMENTS = ["Finance", "Engineering", "Human Resources", "Security", "Operations"]
-IPS = ["192.0.2.10", "198.51.100.20", "203.0.113.30"]
+OUT = Path("data/schemas/iam_datastore.sql")
+OUT.parent.mkdir(parents=True, exist_ok=True)
+now = datetime.now(timezone.utc).isoformat()
 
+with OUT.open("w", encoding="utf-8") as fh:
+    fh.write("PRAGMA foreign_keys = ON;\n\nBEGIN TRANSACTION;\n\n")
 
-def now() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
+    # DROP / CREATE tables (canonical)
+    fh.write("""-- Identities and access model
+DROP VIEW IF EXISTS access_events_trigger;
+DROP VIEW IF EXISTS anomaly_cases_trigger;
+DROP VIEW IF EXISTS user_roles_trigger;
+DROP VIEW IF EXISTS user_permissions_trigger;
+DROP VIEW IF EXISTS policy_context_trigger;
+DROP VIEW IF EXISTS playbook_context_trigger;
 
+DROP TRIGGER IF EXISTS trg_access_events_enqueue;
+DROP TRIGGER IF EXISTS trg_anomaly_cases_enqueue;
 
-def stamp(value: datetime) -> str:
-    return value.isoformat()
+DROP TABLE IF EXISTS event_queue;
+DROP TABLE IF EXISTS anomaly_cases;
+DROP TABLE IF EXISTS access_events;
+DROP TABLE IF EXISTS role_permissions;
+DROP TABLE IF EXISTS identity_roles;
+DROP TABLE IF EXISTS playbooks;
+DROP TABLE IF EXISTS policies;
+DROP TABLE IF EXISTS permissions;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS identities;
 
+CREATE TABLE identities (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    timezone TEXT NOT NULL DEFAULT 'UTC',
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
+    created_at TEXT NOT NULL
+);
 
-def insert(db: sqlite3.Connection, table: str, values: dict) -> None:
-    columns = ",".join(values)
-    marks = ",".join("?" for _ in values)
-    db.execute(f"INSERT OR REPLACE INTO {table} ({columns}) VALUES ({marks})", tuple(values.values()))
+CREATE TABLE roles (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT
+);
 
+CREATE TABLE permissions (
+    id TEXT PRIMARY KEY,
+    resource TEXT NOT NULL,
+    action TEXT NOT NULL,
+    sensitivity INTEGER NOT NULL DEFAULT 50 CHECK (sensitivity BETWEEN 0 AND 100),
+    UNIQUE (resource, action)
+);
 
-def build(path: Path, users: int, events: int, seed: int, reset: bool) -> dict[str, int]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path)
-    db.execute("PRAGMA foreign_keys = ON")
-    if reset:
-        db.executescript("DROP TABLE IF EXISTS policy_evaluations; DROP TABLE IF EXISTS anomaly_cases; DROP TABLE IF EXISTS access_events; DROP TABLE IF EXISTS access_sessions; DROP TABLE IF EXISTS policy_rules; DROP TABLE IF EXISTS policy_framework; DROP TABLE IF EXISTS resource_catalog; DROP TABLE IF EXISTS user_roles; DROP TABLE IF EXISTS role_permissions; DROP TABLE IF EXISTS permission_catalog; DROP TABLE IF EXISTS role_catalog; DROP TABLE IF EXISTS device_inventory; DROP TABLE IF EXISTS user_enrollment; DROP TABLE IF EXISTS user_directory; DROP TABLE IF EXISTS dataset_runs;")
-    db.executescript(SCHEMA.read_text(encoding="utf-8"))
-    rng = random.Random(seed)
-    current = now()
-    run_id = f"run-{seed}-{current.strftime('%Y%m%d%H%M%S')}"
-    insert(db, "dataset_runs", {"id": run_id, "dataset_version": current.strftime("%Y.%m.%d"), "source": "synthetic", "generator_seed": seed, "generated_at": stamp(current), "notes": "Privacy-safe synthetic IAM dataset"})
+CREATE TABLE identity_roles (
+    identity_id TEXT NOT NULL,
+    role_id TEXT NOT NULL,
+    assigned_at TEXT NOT NULL,
+    assigned_by TEXT,
+    is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0, 1)),
+    PRIMARY KEY (identity_id, role_id),
+    FOREIGN KEY (identity_id) REFERENCES identities(id),
+    FOREIGN KEY (role_id) REFERENCES roles(id)
+);
 
-    roles = [("role-employee", "Employee", "Baseline workforce access"), ("role-finance", "Finance Approver", "Finance access"), ("role-engineer", "Engineer", "Engineering access"), ("role-security", "Security Analyst", "Security operations access"), ("role-admin", "IAM Administrator", "Privileged IAM access")]
-    for role_id, name, description in roles:
-        insert(db, "role_catalog", {"id": role_id, "name": name, "description": description, "scope": "enterprise"})
-    permissions = [("perm-profile", "Profile Read", "Read workforce profiles", "hr/profile", "read", 50), ("perm-payroll", "Payroll Read", "Read payroll", "finance/payroll", "read", 90), ("perm-deploy", "Production Deploy", "Deploy production services", "engineering/production", "deploy", 95), ("perm-alerts", "Security Alerts", "Read security alerts", "security/alerts", "read", 80), ("perm-iam", "IAM Admin", "Administer identities", "iam/directory", "admin", 100)]
-    for row in permissions:
-        insert(db, "permission_catalog", dict(zip(("id", "name", "description", "resource_pattern", "action", "sensitivity"), row)))
-    role_permissions = {"role-employee": ["perm-profile"], "role-finance": ["perm-profile", "perm-payroll"], "role-engineer": ["perm-profile", "perm-deploy"], "role-security": ["perm-profile", "perm-alerts"], "role-admin": ["perm-profile", "perm-alerts", "perm-iam"]}
-    for role_id, permission_ids in role_permissions.items():
-        for permission_id in permission_ids:
-            db.execute("INSERT OR IGNORE INTO role_permissions VALUES (?, ?)", (role_id, permission_id))
+CREATE TABLE role_permissions (
+    role_id TEXT NOT NULL,
+    permission_id TEXT NOT NULL,
+    granted_at TEXT NOT NULL,
+    PRIMARY KEY (role_id, permission_id),
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (permission_id) REFERENCES permissions(id)
+);
 
-    user_ids = []
-    for number in range(1, users + 1):
-        user_id = f"usr-{number:05d}"
-        user_ids.append(user_id)
-        department = DEPARTMENTS[(number - 1) % len(DEPARTMENTS)]
-        created = current - timedelta(days=rng.randint(30, 900))
-        status = "suspended" if number % 41 == 0 else "active"
-        insert(db, "user_directory", {"id": user_id, "employee_id": f"EMP-{number:05d}", "display_name": f"Synthetic User {number:05d}", "email": f"user{number:05d}@example.invalid", "department": department, "team": f"{department} Team {number % 4 + 1}", "job_title": "Analyst", "timezone": "UTC", "location": "Synthetic Lab", "status": status, "risk_tier": "elevated" if number % 17 == 0 else "standard", "created_at": stamp(created), "updated_at": stamp(current)})
-        insert(db, "user_enrollment", {"id": f"enroll-{number:05d}", "user_id": user_id, "username": f"synthetic.user{number:05d}", "identity_provider": "synthetic-idp", "mfa_required": 1, "mfa_enforced": 1, "joined_at": stamp(created), "last_verified_at": stamp(current)})
-        device_id = f"device-{number:05d}"
-        insert(db, "device_inventory", {"id": device_id, "user_id": user_id, "device_name": f"synthetic-device-{number:05d}", "device_type": "laptop", "os_family": "Linux", "os_version": "6.x", "device_trust_score": round(rng.uniform(.35, .99), 3), "compliant": int(number % 23 != 0), "first_seen_at": stamp(created), "last_seen_at": stamp(current)})
-        primary_role = {"Finance": "role-finance", "Engineering": "role-engineer", "Security": "role-security"}.get(department, "role-employee")
-        db.execute("INSERT INTO user_roles VALUES (?, ?, ?, ?, ?)", (user_id, primary_role, stamp(created), "seed-system", 1))
-        if number % 31 == 0:
-            db.execute("INSERT INTO user_roles VALUES (?, ?, ?, ?, ?)", (user_id, "role-admin", stamp(created), "seed-system", 0))
+CREATE TABLE policies (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    rule_json TEXT NOT NULL,
+    text TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 50,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1))
+);
 
-    frameworks = [("fw-nist-800-53", "NIST SP 800-53", "Rev. 5", "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final", "access-control", "Security and privacy controls"), ("fw-cis", "CIS Controls", "v8", "https://www.cisecurity.org/controls", "identity", "Identity and access governance"), ("fw-internal", "Synthetic IAM Baseline", "1.0", "local://synthetic", "authentication", "Demo policy baseline")]
-    for row in frameworks:
-        insert(db, "policy_framework", dict(zip(("id", "name", "version", "source", "category", "description"), row)))
-    rules = [("rule-mfa", "fw-nist-800-53", "authentication", "MFA required", "Require MFA for sensitive access.", {"mfa_required": True}), ("rule-active", "fw-nist-800-53", "identification", "Active identity", "Only active identities may access services.", {"active_required": True}), ("rule-least", "fw-cis", "authorization", "Least privilege", "Deny resources outside effective permissions.", {"deny_unknown_resource": True}), ("rule-hours", "fw-internal", "audit", "Work hours", "Review activity outside approved hours.", {"start": 7, "end": 19})]
-    for rule_id, framework_id, stage, name, text, rule_json in rules:
-        insert(db, "policy_rules", {"id": rule_id, "framework_id": framework_id, "stage": stage, "rule_name": name, "rule_text": text, "rule_json": json.dumps(rule_json), "priority": 100, "enabled": 1})
-    resources = [("res-profile", "HR Profiles", "dataset", "prod", 50), ("res-payroll", "Finance Payroll", "dataset", "prod", 95), ("res-production", "Production Platform", "application", "prod", 95), ("res-alerts", "Security Alerts", "application", "prod", 80), ("res-iam", "IAM Directory", "application", "prod", 100)]
-    for resource_id, name, kind, environment, sensitivity in resources:
-        insert(db, "resource_catalog", {"id": resource_id, "name": name, "type": kind, "environment": environment, "owner_user_id": user_ids[0], "sensitivity": sensitivity, "created_at": stamp(current)})
-    resource_ids = [row[0] for row in resources]
-    for number in range(1, events + 1):
-        user_id = rng.choice(user_ids)
-        device_id = f"device-{int(user_id.split('-')[1]):05d}"
-        event_id = f"event-{number:07d}"
-        session_id = f"session-{number:07d}"
-        suspicious = number % 23 == 0
-        occurred = current - timedelta(minutes=rng.randint(0, 129600))
-        insert(db, "access_sessions", {"id": session_id, "user_id": user_id, "device_id": device_id, "session_start": stamp(occurred), "session_end": stamp(occurred + timedelta(minutes=30)), "source_ip": rng.choice(IPS), "geo_country": "ZZ", "geo_region": "Synthetic", "user_agent": "synthetic-client/1.0", "outcome": "failure" if suspicious else "success"})
-        resource_id = "res-iam" if suspicious else rng.choice(resource_ids)
-        action = "admin" if resource_id == "res-iam" else "read"
-        mfa = 0 if suspicious else 1
-        trust = round(rng.uniform(.1, .45) if suspicious else rng.uniform(.65, 1.0), 3)
-        insert(db, "access_events", {"id": event_id, "user_id": user_id, "session_id": session_id, "event_type": "authorize", "stage": "authorization", "source_ip": rng.choice(IPS), "device_id": device_id, "resource_id": resource_id, "action": action, "decision": "deny" if suspicious else "allow", "mfa_satisfied": mfa, "device_trust": trust, "requested_resource": resource_id, "occurred_at": stamp(occurred), "metadata_json": json.dumps({"synthetic": True, "suspicious": suspicious, "dataset_seed": seed})})
-        insert(db, "policy_evaluations", {"id": f"evaluation-{number:07d}", "user_id": user_id, "event_id": event_id, "framework_id": "fw-nist-800-53", "stage": "authorization", "policy_rule_id": "rule-mfa", "matched": int(suspicious), "result": "fail" if suspicious else "pass", "evaluated_at": stamp(occurred)})
-        if suspicious:
-            insert(db, "anomaly_cases", {"id": f"case-{number:07d}", "event_id": event_id, "user_id": user_id, "stage": "authorization", "score": 85, "severity": "high", "reasons_json": json.dumps(["synthetic suspicious sample", "MFA not satisfied", "low device trust"]), "recommendation": "Review identity, device, MFA state, and requested resource.", "playbook_id": None, "status": "open", "created_at": stamp(occurred)})
-    db.commit()
-    counts = {table: db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ("dataset_runs", "user_directory", "user_enrollment", "device_inventory", "role_catalog", "permission_catalog", "role_permissions", "user_roles", "resource_catalog", "policy_framework", "policy_rules", "access_sessions", "access_events", "anomaly_cases", "policy_evaluations")}
-    db.close()
-    return counts
+CREATE TABLE playbooks (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    stage TEXT NOT NULL DEFAULT 'any',
+    trigger_json TEXT NOT NULL,
+    steps_json TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 50,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1))
+);
 
+CREATE TABLE access_events (
+    id TEXT PRIMARY KEY,
+    identity_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    action TEXT NOT NULL DEFAULT 'login',
+    decision TEXT NOT NULL DEFAULT 'allow' CHECK (decision IN ('allow', 'deny', 'review')),
+    source_ip TEXT,
+    device_id TEXT,
+    requested_resource TEXT,
+    device_trust REAL NOT NULL DEFAULT 0 CHECK (device_trust BETWEEN 0 AND 1),
+    mfa_satisfied INTEGER NOT NULL DEFAULT 0 CHECK (mfa_satisfied IN (0, 1)),
+    occurred_at TEXT NOT NULL,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY (identity_id) REFERENCES identities(id)
+);
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--db", type=Path, default=DEFAULT_DB)
-    parser.add_argument("--users", type=int, default=100)
-    parser.add_argument("--events", type=int, default=2000)
-    parser.add_argument("--seed", type=int, default=20260924)
-    parser.add_argument("--reset", action="store_true")
-    args = parser.parse_args()
-    print(json.dumps(build(args.db, args.users, args.events, args.seed, args.reset), indent=2))
+CREATE TABLE anomaly_cases (
+    id TEXT PRIMARY KEY,
+    event_id TEXT NOT NULL UNIQUE,
+    identity_id TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    risk_score REAL NOT NULL CHECK (risk_score BETWEEN 0 AND 100),
+    severity TEXT NOT NULL CHECK (severity IN ('medium', 'high', 'critical')),
+    reasons_json TEXT NOT NULL,
+    recommendation TEXT NOT NULL,
+    playbook_id TEXT,
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewing', 'resolved', 'dismissed')),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (event_id) REFERENCES access_events(id),
+    FOREIGN KEY (identity_id) REFERENCES identities(id),
+    FOREIGN KEY (playbook_id) REFERENCES playbooks(id)
+);
 
+CREATE TABLE event_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL UNIQUE,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'processed', 'failed')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at TEXT
+);
 
-if __name__ == "__main__":
-    main()
+CREATE INDEX idx_access_events_identity_time ON access_events(identity_id, occurred_at DESC);
+CREATE INDEX idx_anomaly_cases_status ON anomaly_cases(status, created_at DESC);
+CREATE INDEX idx_event_queue_status ON event_queue(status, id);
+
+""")
+
+    # Seed rows (concise but useful)
+    fh.write(f"-- seed roles\n")
+    fh.write(
+        "INSERT INTO roles (id, name, description) VALUES\n" +
+        "('role-finance','Finance Analyst','Finance reporting and payroll access'),\n" +
+        "('role-iam','IAM Administrator','Identity and access administration'),\n" +
+        "('role-engineering','Engineering','Engineering systems access'),\n" +
+        "('role-audit','Auditor','Read-only audit and compliance access'),\n" +
+        "('role-support','Support Analyst','Customer and support operations'),\n" +
+        "('role-employee','Employee','Baseline employee access');\n\n"
+    )
+
+    fh.write("-- seed permissions\n")
+    fh.write(
+        "INSERT INTO permissions (id, resource, action, sensitivity) VALUES\n"
+        "('perm-payroll-read','finance/payroll','read',80),\n"
+        "('perm-payroll-write','finance/payroll','write',95),\n"
+        "('perm-iam-admin','iam/admin','admin',100),\n"
+        "('perm-iam-read','iam/directory','read',70),\n"
+        "('perm-engineering-read','engineering/repositories','read',60),\n"
+        "('perm-engineering-write','engineering/repositories','write',85),\n"
+        "('perm-audit-read','audit/cases','read',65),\n"
+        "('perm-support-read','support/tickets','read',45),\n"
+        "('perm-profile-read','identity/profile','read',25);\n\n"
+    )
+
+    # Minimal identities (create 10 for demo)
+    fh.write("-- seed identities\n")
+    for n in range(1, 11):
+        iid = f"usr-{n:05d}"
+        username = f"user{n:03d}@example.test"
+        display = f"Synthetic User {n:03d}"
+        dept = ["Finance", "Engineering", "Security", "Support", "Operations"][n % 5]
+        fh.write(
+            f"INSERT INTO identities (id, username, display_name, department, timezone, status, created_at) "
+            f"VALUES ('{iid}','{username}','{display}','{dept}','UTC','active','{now}');\n"
+        )
+    fh.write("\n")
+
+    # identity_roles and role_permissions (assign basic roles and permissions)
+    fh.write("-- seed identity_roles and role_permissions\n")
+    fh.write(
+        "INSERT INTO identity_roles (identity_id, role_id, assigned_at, assigned_by, is_primary) VALUES\n"
+    )
+    values = []
+    for n in range(1, 11):
+        iid = f"usr-{n:05d}"
+        # give first users specific roles
+        role = "role-employee" if n > 3 else ["role-engineering", "role-finance", "role-support"][ (n-1) % 3 ]
+        values.append(f"('{iid}','{role}','{now}','synthetic-seed',{1 if n <= 3 else 1})")
+    fh.write(",\n".join(values) + ";\n\n")
+
+    fh.write(
+        "INSERT INTO role_permissions (role_id, permission_id, granted_at) VALUES\n"
+        "('role-finance','perm-payroll-read','{0}'),\n"
+        "('role-iam','perm-iam-admin','{0}'),\n"
+        "('role-engineering','perm-engineering-read','{0}'),\n"
+        "('role-engineering','perm-engineering-write','{0}'),\n"
+        "('role-audit','perm-audit-read','{0}'),\n"
+        "('role-support','perm-support-read','{0}'),\n"
+        "('role-employee','perm-profile-read','{0}');\n\n".format(now)
+    )
+
+    # Policies and playbooks (simple set)
+    fh.write("-- seed policies\n")
+    fh.write(
+        "INSERT INTO policies (id, name, stage, rule_json, text, priority, enabled) VALUES\n"
+        "('policy-mfa','MFA requirement','authentication','{\"mfa_required\":true}','Authentication requires MFA for protected resources.',110,1),\n"
+        "('policy-device-trust','Device trust requirement','authentication','{\"minimum_device_trust\":0.5}','Low device trust increases identity risk and requires review.',105,1),\n"
+        "('policy-privileged-access','Privileged access review','authorization','{\"sensitive_resource\":true}','Privileged access requires verified authorization and preserved evidence.',100,1),\n"
+        "('policy-off-hours','Off-hours review','audit','{\"outside_local_hours\":true}','Off-hours activity requires shift verification and review.',100,1);\n\n"
+    )
+
+    fh.write("-- seed playbooks\n")
+    fh.write(
+        "INSERT INTO playbooks (id, name, stage, trigger_json, steps_json, priority, enabled) VALUES\n"
+        "('pb-contain','High risk identity containment','any','{\"risk_score_gte\":70}','[\"revoke active sessions\",\"require step-up MFA\",\"notify IAM owner\"]',110,1),\n"
+        "('pb-time','Wrong-time check-in','audit','{\"outside_local_hours\":true}','[\"verify shift or exception\",\"compare device and IP history\",\"open review case\"]',105,1);\n\n"
+    )
+
+    fh.write("COMMIT;\n")
+print(f"Wrote: {OUT}")
