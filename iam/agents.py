@@ -148,21 +148,27 @@ class FoundryIQ:
             return fallback
 
 
-  @staticmethod
-      def _tokens(text: str) -> set[str]:
+class LocalRAG:
+    """Lightweight local retrieval (policy search) adapter."""
+
+    def __init__(self, repo: Repository) -> None:
+        self.repo = repo
+
+    @staticmethod
+    def _tokens(text: str) -> set[str]:
         # basic normalization: lowercase, strip punctuation, split on whitespace
         # ignore very short tokens
-          return {
-              word.lower().strip(".,:;()[]{}\"'`")
-              for word in text.split()
-              if len(word) > 2
+        return {
+            word.lower().strip(".,:;()[]{}\"'`")
+            for word in text.split()
+            if len(word) > 2
         }
 
     def search(
         self,
         query: str,
         limit: int = 3,
-        stage: str | None = None,   # new optional stage filter
+        stage: str | None = None,
     ) -> list[dict[str, Any]]:
         query_tokens = self._tokens(query)
         scored: list[tuple[float, dict[str, Any]]] = []
