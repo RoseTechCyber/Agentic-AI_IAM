@@ -11,3 +11,4 @@ data/**/*.db
 data/*.db
 *.db-wal
 *.db-shm
+data/schemas/*.db
