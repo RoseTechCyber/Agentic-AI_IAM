@@ -22,18 +22,6 @@ class DatabaseIQ:
             raise ValueError(f"Unknown identity: {user_id}")
 
         roles = self.repo.execute(
-<<<<<<< HEAD
-        """
-        SELECT r.*
-         FROM roles r
-        JOIN identity_roles ir
-        ON ir.role_id = r.id
-        WHERE ir.identity_id = ?
-        """,
-        (user_id,),
-       )
-            
-=======
             """
             SELECT r.*
             FROM roles r
@@ -43,7 +31,6 @@ class DatabaseIQ:
             (user_id,),
         )
 
->>>>>>> a22a244569c6e1c50f704eee579888d9d29463c0
         return {
             "user": user,
             "roles": roles,
