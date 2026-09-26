@@ -10,11 +10,34 @@ from datetime import datetime, timezone
 import json
 from iam.repository import Repository
 
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+
 def seed(repo: Repository) -> None:
     now = now_iso()
+
+    # Identities (ensure demo users exist)
+    identities = [
+        ("usr-00001", "user001@example.test", "Synthetic User 001", "Engineering"),
+        ("usr-00002", "user002@example.test", "Synthetic User 002", "Finance"),
+        ("usr-00003", "user003@example.test", "Synthetic User 003", "Support"),
+    ]
+
+    for iid, username, display_name, dept in identities:
+        repo.insert(
+            "identities",
+            {
+                "id": iid,
+                "username": username,
+                "display_name": display_name,
+                "department": dept,
+                "timezone": "UTC",
+                "status": "active",
+                "created_at": now,
+            },
+        )
 
     # Roles
     roles = [
@@ -25,41 +48,61 @@ def seed(repo: Repository) -> None:
         ("role-support", "Support Analyst", "Customer and support operations"),
         ("role-employee", "Employee", "Baseline employee access"),
     ]
-    
-    # --- replace the repo.insert loop for identity_roles with this ---
-    with repo.connection() as db:
-    # identity_roles assignments
-       assignments = [
-        ("usr-00001", "role-engineering"),
-        ("usr-00002", "role-finance"),
-        ("usr-00003", "role-support"),
-        ("usr-00001", "role-employee"),
-        ("usr-00002", "role-employee"),
-      ]
-       for identity_id, role_id in assignments:
-        db.execute(
-        "INSERT OR IGNORE INTO identity_roles (identity_id, role_id, assigned_at, assigned_by, is_primary) VALUES (?, ?, ?, ?, ?)",
-         (identity_id, role_id, now, "synthetic-seed", 1), 
+
+    for rid, name, desc in roles:
+        repo.insert("roles", {"id": rid, "name": name, "description": desc})
+
+    # Permissions
+    permissions = [
+        ("perm-payroll-read", "finance/payroll", "read", 80),
+        ("perm-profile-read", "identity/profile", "read", 25),
+        ("perm-iam-admin", "iam/*", "admin", 95),
+        ("perm-iam-read", "iam/*", "read", 50),
+        ("perm-engineering-read", "engineering/repositories", "read", 60),
+        ("perm-engineering-write", "engineering/repositories", "write", 70),
+        ("perm-audit-read", "audit/*", "read", 40),
+        ("perm-support-read", "support/tickets", "read", 30),
+    ]
+
+    for pid, resource, action, sensitivity in permissions:
+        repo.insert(
+            "permissions",
+            {"id": pid, "resource": resource, "action": action, "sensitivity": sensitivity},
         )
-    # role_permissions assignments
-        rp = [
-         ("role-finance", "perm-payroll-read"),
-         ("role-finance", "perm-profile-read"),
-         ("role-iam", "perm-iam-admin"),
-         ("role-iam", "perm-iam-read"),
-         ("role-engineering", "perm-engineering-read"),
-         ("role-engineering", "perm-engineering-write"),
-         ("role-audit", "perm-audit-read"),
-         ("role-support", "perm-support-read"),
-         ("role-employee", "perm-profile-read"),
+
+    # Association tables: identity_roles and role_permissions
+    with repo.connection() as db:
+        assignments = [
+            ("usr-00001", "role-engineering"),
+            ("usr-00002", "role-finance"),
+            ("usr-00003", "role-support"),
+            ("usr-00001", "role-employee"),
+            ("usr-00002", "role-employee"),
         ]
+
+        for identity_id, role_id in assignments:
+            db.execute(
+                "INSERT OR IGNORE INTO identity_roles (identity_id, role_id, assigned_at, assigned_by, is_primary) VALUES (?, ?, ?, ?, ?)",
+                (identity_id, role_id, now, "synthetic-seed", 1),
+            )
+
+        rp = [
+            ("role-finance", "perm-payroll-read"),
+            ("role-finance", "perm-profile-read"),
+            ("role-iam", "perm-iam-admin"),
+            ("role-iam", "perm-iam-read"),
+            ("role-engineering", "perm-engineering-read"),
+            ("role-engineering", "perm-engineering-write"),
+            ("role-audit", "perm-audit-read"),
+            ("role-support", "perm-support-read"),
+            ("role-employee", "perm-profile-read"),
+        ]
+
         for role_id, permission_id in rp:
-          db.execute(
-           "INSERT OR IGNORE INTO role_permissions (role_id, permission_id, granted_at) VALUES (?, ?, ?)",
-           (role_id, permission_id, now),
-           )
-      
-# ---
+            db.execute(
+                "INSERT OR IGNORE INTO role_permissions (role_id, permission_id, granted_at) VALUES (?, ?, ?)",
+                (role_id, permission_id, now),
+            )
 
     # Policies
     policies = [
@@ -96,6 +139,7 @@ def seed(repo: Repository) -> None:
             100,
         ),
     ]
+
     for pid, name, stage, rule_json, text, priority in policies:
         repo.insert(
             "policies",
@@ -117,9 +161,7 @@ def seed(repo: Repository) -> None:
             "High risk identity containment",
             "any",
             json.dumps({"risk_score_gte": 70}),
-            json.dumps(
-                ["revoke active sessions", "require step-up MFA", "notify IAM owner"]
-            ),
+            json.dumps(["revoke active sessions", "require step-up MFA", "notify IAM owner"]),
             110,
         ),
         (
@@ -127,12 +169,11 @@ def seed(repo: Repository) -> None:
             "Wrong-time check-in",
             "audit",
             json.dumps({"outside_local_hours": True}),
-            json.dumps(
-                ["verify shift or exception", "compare device and IP history", "open review case"]
-            ),
+            json.dumps(["verify shift or exception", "compare device and IP history", "open review case"]),
             105,
         ),
     ]
+
     for pb in playbooks:
         repo.insert(
             "playbooks",
@@ -149,10 +190,7 @@ def seed(repo: Repository) -> None:
 
     print("Synthetic seed complete.")
 
+
 if __name__ == "__main__":
     repo = Repository()
-<<<<<<< HEAD
     seed(repo)
-=======
-    seed(repo)
->>>>>>> 0df5cc9f5f902f386bb3096af0ce62c2b648f857
