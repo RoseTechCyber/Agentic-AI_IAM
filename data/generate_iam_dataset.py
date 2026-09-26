@@ -235,8 +235,4 @@ CREATE INDEX idx_event_queue_status ON event_queue(status, id);
     )
 
     fh.write("COMMIT;\n")
-<<<<<<< HEAD
 print(f"Wrote: {OUT}")
-=======
-print(f"Wrote: {OUT}")
->>>>>>> 0df5cc9f5f902f386bb3096af0ce62c2b648f857

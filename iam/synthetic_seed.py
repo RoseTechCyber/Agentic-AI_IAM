@@ -151,4 +151,8 @@ def seed(repo: Repository) -> None:
 
 if __name__ == "__main__":
     repo = Repository()
+<<<<<<< HEAD
     seed(repo)
+=======
+    seed(repo)
+>>>>>>> 0df5cc9f5f902f386bb3096af0ce62c2b648f857
