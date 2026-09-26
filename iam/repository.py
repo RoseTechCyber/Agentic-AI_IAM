@@ -26,7 +26,7 @@ class Repository:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
 
         with self.connection() as db:
-            schema = Path(__file__).with_name("iam_datastore.sql").read_text()
+            schema = Path(__file__).with_name("schema.sql").read_text()
             db.executescript(schema)
 
     @contextmanager
