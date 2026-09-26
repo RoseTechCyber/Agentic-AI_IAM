@@ -25,93 +25,41 @@ def seed(repo: Repository) -> None:
         ("role-support", "Support Analyst", "Customer and support operations"),
         ("role-employee", "Employee", "Baseline employee access"),
     ]
-    for rid, name, desc in roles:
-        repo.insert("roles", {"id": rid, "name": name, "description": desc})
-
-    # Permissions
-    perms = [
-        ("perm-payroll-read", "finance/payroll", "read", 80),
-        ("perm-payroll-write", "finance/payroll", "write", 95),
-        ("perm-iam-admin", "iam/admin", "admin", 100),
-        ("perm-iam-read", "iam/directory", "read", 70),
-        ("perm-engineering-read", "engineering/repositories", "read", 60),
-        ("perm-engineering-write", "engineering/repositories", "write", 85),
-        ("perm-audit-read", "audit/cases", "read", 65),
-        ("perm-support-read", "support/tickets", "read", 45),
-        ("perm-profile-read", "identity/profile", "read", 25),
-    ]
-    for pid, resource, action, sensitivity in perms:
-        repo.insert(
-            "permissions",
-            {
-                "id": pid,
-                "resource": resource,
-                "action": action,
-                "sensitivity": sensitivity,
-            },
-        )
-
-    # Create a few identities
-    identities = [
-        ("usr-00001", "user001@example.test", "Synthetic User 001", "Engineering"),
-        ("usr-00002", "user002@example.test", "Synthetic User 002", "Finance"),
-        ("usr-00003", "user003@example.test", "Synthetic User 003", "Support"),
-    ]
-    for iid, username, display_name, dept in identities:
-        repo.insert(
-            "identities",
-            {
-                "id": iid,
-                "username": username,
-                "display_name": display_name,
-                "department": dept,
-                "timezone": "UTC",
-                "status": "active",
-                "created_at": now,
-            },
-        )
-
-    # Assign roles to identities
-    assignments = [
+    
+    # --- replace the repo.insert loop for identity_roles with this ---
+    with repo.connection() as db:
+    # identity_roles assignments
+       assignments = [
         ("usr-00001", "role-engineering"),
         ("usr-00002", "role-finance"),
         ("usr-00003", "role-support"),
         ("usr-00001", "role-employee"),
         ("usr-00002", "role-employee"),
-    ]
-    for identity_id, role_id in assignments:
-        repo.insert(
-            "identity_roles",
-            {
-                "identity_id": identity_id,
-                "role_id": role_id,
-                "assigned_at": now,
-                "assigned_by": "synthetic-seed",
-                "is_primary": 1,
-            },
+      ]
+       for identity_id, role_id in assignments:
+        db.execute(
+        "INSERT OR IGNORE INTO identity_roles (identity_id, role_id, assigned_at, assigned_by, is_primary) VALUES (?, ?, ?, ?, ?)",
+         (identity_id, role_id, now, "synthetic-seed", 1), 
         )
-
-    # Grant role_permissions (note: uses existing permission ids)
-    rp = [
-        ("role-finance", "perm-payroll-read"),
-        ("role-finance", "perm-profile-read"),
-        ("role-iam", "perm-iam-admin"),
-        ("role-iam", "perm-iam-read"),
-        ("role-engineering", "perm-engineering-read"),
-        ("role-engineering", "perm-engineering-write"),
-        ("role-audit", "perm-audit-read"),
-        ("role-support", "perm-support-read"),
-        ("role-employee", "perm-profile-read"),
-    ]
-    for role_id, permission_id in rp:
-        repo.insert(
-            "role_permissions",
-            {
-                "role_id": role_id,
-                "permission_id": permission_id,
-                "granted_at": now,
-            },
-        )
+    # role_permissions assignments
+        rp = [
+         ("role-finance", "perm-payroll-read"),
+         ("role-finance", "perm-profile-read"),
+         ("role-iam", "perm-iam-admin"),
+         ("role-iam", "perm-iam-read"),
+         ("role-engineering", "perm-engineering-read"),
+         ("role-engineering", "perm-engineering-write"),
+         ("role-audit", "perm-audit-read"),
+         ("role-support", "perm-support-read"),
+         ("role-employee", "perm-profile-read"),
+        ]
+        for role_id, permission_id in rp:
+          db.execute(
+           "INSERT OR IGNORE INTO role_permissions (role_id, permission_id, granted_at) VALUES (?, ?, ?)",
+           (role_id, permission_id, now),
+           )
+      
+# ---
 
     # Policies
     policies = [
