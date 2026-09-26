@@ -148,14 +148,14 @@ class FoundryIQ:
             return fallback
 
 
-@staticmethod
-    def _tokens(text: str) -> set[str]:
+  @staticmethod
+      def _tokens(text: str) -> set[str]:
         # basic normalization: lowercase, strip punctuation, split on whitespace
         # ignore very short tokens
-        return {
-            word.lower().strip(".,:;()[]{}\"'`")
-            for word in text.split()
-            if len(word) > 2
+          return {
+              word.lower().strip(".,:;()[]{}\"'`")
+              for word in text.split()
+              if len(word) > 2
         }
 
     def search(
