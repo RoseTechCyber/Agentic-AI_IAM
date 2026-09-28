@@ -50,7 +50,7 @@ def root() -> dict[str, str]:
     }
 
 @app.get(
-    "/demo/run-identity-lifecycle/{user_id}"
+    "/demo/run-identity_lifecycle/{user_id}"
 )
 async def demo_run(user_id: str):
     request = IdentityRequest(
