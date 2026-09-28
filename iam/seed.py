@@ -152,8 +152,5 @@ def seed() -> None:
         )
 
 if __name__ == "__main__":
-<<<<<<< HEAD
+ HEAD
     seed()
-=======
-    seed()
->>>>>>> 601da4396d2107fd9d4564072544a44ae2e171fd
