@@ -156,7 +156,8 @@ class LocalRAG:
 
     @staticmethod
     def _tokens(text: str) -> set[str]:
-        # Basic normalization: lowercase, strip punctuation, split on whitespace.
+        # basic normalization: lowercase, strip punctuation, split on whitespace
+        # ignore very short tokens
         return {
             word.lower().strip(".,:;()[]{}\"'`")
             for word in text.split()
@@ -173,7 +174,7 @@ class LocalRAG:
         scored: list[tuple[float, dict[str, Any]]] = []
 
         sql = "SELECT id, name, stage, text, priority FROM policies WHERE enabled=1"
-        params: tuple[Any, ...] = ()
+        params: tuple = ()
         if stage:
             sql += " AND (stage=? OR stage='any')"
             params = (stage,)
@@ -182,27 +183,22 @@ class LocalRAG:
 
         for row in rows:
             document_tokens = self._tokens(row["text"])
+            # Jaccard similarity
+            score = 0.0
             union = query_tokens | document_tokens
-            score = (
-                len(query_tokens & document_tokens) / len(union)
-                if union
-                else 0.0
-            )
+            if union:
+                score = len(query_tokens & document_tokens) / len(union)
             scored.append((score, row))
 
-        scored.sort(
-            key=lambda item: (item[0], item[1].get("priority", 0)),
-            reverse=True,
-        )
+        # sort primarily by score, secondarily by policy priority so low-similarity but high-priority policies surface
+        scored.sort(key=lambda item: (item[0], item[1].get("priority", 0)), reverse=True)
 
-        return [
-            {
-                **row,
-                "similarity": round(score, 4),
-            }
-            for score, row in scored[:limit]
-<<<<<<< HEAD
-        ]
-=======
-        ]
->>>>>>> 601da4396d2107fd9d4564072544a44ae2e171fd
+        results = []
+        for score, row in scored[:limit]:
+            results.append(
+                {
+                    **row,
+                    "similarity": round(score, 4),
+                }
+            )
+        return results
