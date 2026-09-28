@@ -49,6 +49,18 @@ def root() -> dict[str, str]:
         "health": "/health",
     }
 
+@app.get(
+    "/demo/run-identity-lifecycle/{user_id}"
+)
+async def demo_run(user_id: str):
+    request = IdentityRequest(
+    user_id=user_id
+    )
+     result = orchestrator.process(
+    request
+    )
+return result
+
 
 @app.get("/policies")
 def policies(stage: str | None = None):
@@ -105,6 +117,9 @@ def rag_search(
     return workflow.rag.search(query, limit)
 
 
+@app.get("/demo/run-1")
+
+
 @app.post("/demo/run")
 def demo_run():
     return workflow.evaluate(
@@ -120,3 +135,22 @@ def demo_run():
             "metadata": {"demo": True},
         }
     )
+
+def demo_run():
+
+    payload = IdentityRequest(
+        user_id="EMP001",
+        country="RU",
+        device="UNKNOWN",
+        login_time="02:15"
+    )
+
+    result = orchestrator.process(
+        payload
+    )
+
+    return {
+        "request": payload,
+        "agent_decisions": result.agent_trace,
+        "response": result
+    }
