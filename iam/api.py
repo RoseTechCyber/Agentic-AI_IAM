@@ -51,9 +51,9 @@ def root() -> dict[str, str]:
 
 @app.get("/demo/run-identity_lifecycle/{user_id}")
 async def demo_run(user_id: str):
-    request = IdentityRequest(user_id=user_id)
-    result = orchestrator.process(request)
-    return result
+  request = IdentityRequest(user_id=user_id)
+  result = orchestrator.process(request)
+  return result
 
 @app.get("/policies")
 def policies(stage: str | None = None):
