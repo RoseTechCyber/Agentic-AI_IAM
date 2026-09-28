@@ -201,4 +201,8 @@ class LocalRAG:
                 "similarity": round(score, 4),
             }
             for score, row in scored[:limit]
+<<<<<<< HEAD
         ]
+=======
+        ]
+>>>>>>> 601da4396d2107fd9d4564072544a44ae2e171fd
