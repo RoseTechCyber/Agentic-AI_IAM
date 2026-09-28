@@ -148,10 +148,15 @@ class FoundryIQ:
             return fallback
 
 
-@staticmethod
+class LocalRAG:
+    """Lightweight local retrieval (policy search) adapter."""
+
+    def __init__(self, repo: Repository) -> None:
+        self.repo = repo
+
+    @staticmethod
     def _tokens(text: str) -> set[str]:
-        # basic normalization: lowercase, strip punctuation, split on whitespace
-        # ignore very short tokens
+        # Basic normalization: lowercase, strip punctuation, split on whitespace.
         return {
             word.lower().strip(".,:;()[]{}\"'`")
             for word in text.split()
@@ -162,13 +167,13 @@ class FoundryIQ:
         self,
         query: str,
         limit: int = 3,
-        stage: str | None = None,   # new optional stage filter
+        stage: str | None = None,
     ) -> list[dict[str, Any]]:
         query_tokens = self._tokens(query)
         scored: list[tuple[float, dict[str, Any]]] = []
 
         sql = "SELECT id, name, stage, text, priority FROM policies WHERE enabled=1"
-        params: tuple = ()
+        params: tuple[Any, ...] = ()
         if stage:
             sql += " AND (stage=? OR stage='any')"
             params = (stage,)
@@ -177,22 +182,23 @@ class FoundryIQ:
 
         for row in rows:
             document_tokens = self._tokens(row["text"])
-            # Jaccard similarity
-            score = 0.0
             union = query_tokens | document_tokens
-            if union:
-                score = len(query_tokens & document_tokens) / len(union)
+            score = (
+                len(query_tokens & document_tokens) / len(union)
+                if union
+                else 0.0
+            )
             scored.append((score, row))
 
-        # sort primarily by score, secondarily by policy priority so low-similarity but high-priority policies surface
-        scored.sort(key=lambda item: (item[0], item[1].get("priority", 0)), reverse=True)
+        scored.sort(
+            key=lambda item: (item[0], item[1].get("priority", 0)),
+            reverse=True,
+        )
 
-        results = []
-        for score, row in scored[:limit]:
-            results.append(
-                {
-                    **row,
-                    "similarity": round(score, 4),
-                }
-            )
-        return results
+        return [
+            {
+                **row,
+                "similarity": round(score, 4),
+            }
+            for score, row in scored[:limit]
+        ]
