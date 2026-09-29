@@ -37,7 +37,6 @@ class ContextProvider:
         return cur.fetchone()
         
     def get_recent_access_events(self, user_id):
- 
         cur = self.conn.cursor()
  
         cur.execute("""
