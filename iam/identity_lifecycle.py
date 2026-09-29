@@ -121,7 +121,7 @@ class ContextProvider:
 
         return cur.fetchone()
 
- class LifecycleOrchestrator:
+class LifecycleOrchestrator:
 
     def __init__(
         self,
