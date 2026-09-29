@@ -6,15 +6,20 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 from datetime import datetime
+from pydantic import Field
+ 
+
+
+print(os.getcwd())
+print(os.path.exists("iam_datastore.db"))
 
 
 
 class ContextProvider:
-
     def __init__(self):
 
         self.conn = sqlite3.connect(
-            "iam_datastore.db",
+            "data/schemas/iam_datastore.db",
             check_same_thread=False
         )
 
@@ -102,16 +107,16 @@ class ContextProvider:
         
     def get_playbook_by_name(self, playbook_name):
 
-    cur = self.conn.cursor()
+        cur = self.conn.cursor()
 
-    cur.execute("""
+        cur.execute("""
         SELECT *
         FROM playbooks
         WHERE playbook_name = ?
         LIMIT 1
-    """, (playbook_name,))
+        """, (playbook_name,))
 
-    return cur.fetchone()
+        return cur.fetchone()
         
     def get_playbook_by_reason(self, reason):
 
@@ -126,7 +131,51 @@ class ContextProvider:
 
         return cur.fetchone()
 
-    
+ class LifecycleOrchestrator:
+
+    def __init__(
+        self,
+        identification_agent,
+        authentication_agent,
+        authorization_agent,
+        audit_agent,
+        risk_agent
+    ):
+        self.identification = identification_agent
+        self.authentication = authentication_agent
+        self.authorization = authorization_agent
+        self.audit = audit_agent
+        self.risk = risk_agent
+
+    def process(self, request):
+
+        response = request
+
+        response = self.identification.execute(
+            request,
+            response
+        )
+
+        if response.identification_status != "PASSED":
+            return response
+
+        response = self.authentication.execute(
+            response
+        )
+
+        response = self.authorization.execute(
+            response
+        )
+
+        response = self.audit.execute(
+            response
+        )
+
+        response = self.risk.execute(
+            response
+        )
+
+        return response   
                             
 class IdentificationAgent:
 
@@ -180,9 +229,7 @@ class AuthenticationAgent:
             )
             return request
 
-        events = self.provider.get_recent_access_events(
-            request.user_id
-        )
+        events = self.provider.get_recent_access_events(request.user_id)
 
         if not events:
             request.risk_score += 10
@@ -253,13 +300,17 @@ class AuditAgent:
             (
                 user_id,
                 event_type,
+                source_ip,
+                device_id,
                 occurred_at
             )
-            VALUES (?,?,?)
+            VALUES (?,?,?,?,?)
             """,
             (
                 request.user_id,
                 "IDENTITY_LIFECYCLE_RUN",
+                None,
+                None,
                 datetime.utcnow()
             )
         )
@@ -286,83 +337,95 @@ class RiskAnomalyAgent:
     def execute(self, request):
 
         score = request.risk_score
-
         reasons = []
+
         event = self.provider.get_latest_access_event(
-                request.user_id
-        )
-        occurred_at = event["occurred_at"]
-
-        login_hour = datetime.fromisoformat(
-          request.occurred_at).hour
-                                                            
+            request.user_id
         )
 
-        if login_hour < 7 or login_hour > 19:
+        if event:
+            occurred_at = (event["occurred_at"].replace("Z", "+00:00")
+)
+            login_hour = datetime.fromisoformat(occurred_at).hour
 
-            reasons.append(
-                "wrong-time check-in"
-            )
+            if login_hour < 7 or login_hour > 19:
 
-            score += 20
+                reasons.append("wrong-time check-in")
 
-        if request.device == "UNKNOWN":
+                score += 20
 
-            reasons.append(
-                "low device trust"
-            )
-
-            score += 15
-
-         identity = self.provider.get_identity(
-                         request.user_id
+        identity = self.provider.get_identity(
+            request.user_id
         )
- 
-        department = identity["department"]
-        if department in [
-                        "Finance",
-                        "Security",
-                        "HR"
-        ]:
-            score += 20
+
+        if identity:
+
+            dept = identity["department"]
+
+            if dept in [
+                "Finance",
+                "Security",
+                "HR"
+            ]:
+                score += 20
+                
+        event = self.provider.get_latest_access_event(request.user_id)
+        device = None
+
+        if event:
+        device = event["device_id"]
+               
+        if not device:
+
+                reasons.append("low device trust")
+
+                score += 15
+
+
         request.risk_score = score
-        
+
+        selected_playbook = \
+            "Privileged access review"
+
         if "wrong-time check-in" in reasons:
 
-            selected_playbook = 
+            selected_playbook = \
                 "Wrong-time check-in"
 
         elif "low device trust" in reasons:
 
-            selected_playbook = 
+            selected_playbook = \
                 "High risk identity containment"
-                
-        playbook = self.provider.get_playbook_by_name(
-                    selected_playbook
-        )
-        
+
+        playbook = \
+            self.provider.get_playbook_by_name(
+                selected_playbook
+            )
+
         if not playbook:
 
-        request.playbook = "No Matching Playbook"
+            request.playbook = \
+                "No Matching Playbook"
 
-        request.recommended_actions = []
+            request.recommended_actions = []
 
-        return request
-        
-         actions = json.loads(
-            playbook["steps_json"]
-        )    
-         request.playbook = 
+            return request
+
+        request.playbook = \
             playbook["playbook_name"]
-        request.recommended_actions = actions
 
-         request.agent_trace.append({
+        request.recommended_actions = \
+            json.loads(
+                playbook["steps_json"]
+            )
+
+        request.agent_trace.append({
             "agent":"RiskAnomaly",
             "decision":"HIGH",
             "reason":
-                f"Playbook Selected: "
-                f"{playbook['playbook_name']}"
+                f"Playbook Selected: {request.playbook}"
         })
+
         return request
         
         
@@ -405,4 +468,3 @@ class EventAgent:
         )
 
         self.provider.conn.commit()
-
