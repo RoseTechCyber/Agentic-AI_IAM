@@ -334,7 +334,7 @@ class RiskAnomalyAgent:
         event = self.provider.get_latest_access_event(request.user_id)
         device = None
         if event:
-        device = event["device_id"]
+               device = event["device_id"]
 
         if not device:
 
