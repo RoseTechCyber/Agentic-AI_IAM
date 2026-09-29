@@ -11,15 +11,17 @@ from pydantic import Field
 class ContextProvider:
     def __init__(self):
 
-        self.conn = sqlite3.connect(
-            "data/schemas/iam_datastore.db",
-            check_same_thread=False
-        )
-
-        self.conn.row_factory = sqlite3.Row
+        self.conn = sqlite3.connect or os.getenv(
+            "conn","sqlite:///./data/schemas/iam_datastore.db",
+             check_same_thread=False)
+        self.path = self.conn.removeprefix("sqlite:///")
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        
         with self.conn() as db:
             schema = Path(__file__).with_name("iam_datastore.sql").read_text()
             db.executescript(schema)
+            
+        self.conn.row_factory = sqlite3.Row
 
     def get_identity(self, user_id):
 
