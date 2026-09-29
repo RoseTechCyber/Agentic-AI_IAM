@@ -186,35 +186,26 @@ class IdentificationAgent:
         if not identity:
 
             response.identification_status = "FAILED"
- 
             response.agent_trace.append({
             "agent":"Identification",
             "decision":"FAILED",
             "reason":"Identity not found"
         })
-
             return response
-
         response.identification_status = "PASSED"
         response.agent_trace.append({
                     "agent":"Identification",
                     "decision":"PASSED",
                     "reason":"Identity verified"
         })
-
         return response
-        
-
-     
+   
 class AuthenticationAgent:
-
     def __init__(self, provider):
         self.provider = provider
 
     def execute(self, request):
-
         if request.identification_status != "PASSED":
-
             request.authentication_status = "BLOCKED"
             request.agent_trace.append({
                 "agent":"Authentication",
@@ -222,12 +213,10 @@ class AuthenticationAgent:
                 "reason":"Authentication Failed"
             )
             return request
-
+       
         events = self.provider.get_recent_access_events(request.user_id)
-
         if not events:
             request.risk_score += 10
-
         if request.device == "UNKNOWN":
             request.risk_score += 15
 
@@ -239,17 +228,12 @@ class AuthenticationAgent:
         })
         return request
 
-
-
 class AuthorizationAgent:
-
     def __init__(self, provider):
         self.provider = provider
-
+    
     def execute(self, request):
-
         if request.authentication_status != "PASSED":
-
             request.authorization_status = "BLOCKED"
             return request
 
@@ -258,15 +242,12 @@ class AuthorizationAgent:
         )
 
         if len(permissions) == 0:
-
             request.authorization_status = "FAILED"
-
             request.agent_trace.append({
                 "agent":"Authorization",
                 "decision":"FAILED",
                 "reason":"No permissions assigned"
             })
-
             return request
 
         request.authorization_status = "PASSED"
@@ -275,19 +256,14 @@ class AuthorizationAgent:
         "decision":"PASSED",
         "reason":"RBAC validation successful"
         })
-
         return request
-        
+
 class AuditAgent:
-
     def __init__(self, provider):
-
         self.provider = provider
 
     def execute(self, request):
-
         cur = self.provider.conn.cursor()
-
         cur.execute(
             """
             INSERT INTO access_events
@@ -321,15 +297,11 @@ class AuditAgent:
 
         return request
 
-  
 class RiskAnomalyAgent:
-
     def __init__(self, provider):
-
         self.provider = provider
 
     def execute(self, request):
-
         score = request.risk_score
         reasons = []
 
@@ -345,30 +317,24 @@ class RiskAnomalyAgent:
             if login_hour < 7 or login_hour > 19:
 
                 reasons.append("wrong-time check-in")
-
                 score += 20
-
         identity = self.provider.get_identity(
             request.user_id
         )
-
         if identity:
-
             dept = identity["department"]
-
             if dept in [
                 "Finance",
                 "Security",
                 "HR"
             ]:
                 score += 20
-                
+
         event = self.provider.get_latest_access_event(request.user_id)
         device = None
-
         if event:
         device = event["device_id"]
-               
+
         if not device:
 
                 reasons.append("low device trust")
