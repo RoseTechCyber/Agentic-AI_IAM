@@ -9,6 +9,20 @@ from pydantic import BaseModel, Field
 from .repository import Repository
 from .workflow import IAMWorkflow
 
+from .identity_lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent)
+
+repo = Repository()
+provider = ContextProvider(repo
+workflow = IAMWorkflow(repo)
+
+orchestrator = LifecycleOrchestrator(
+    IdentificationAgent(provider),
+    AuthenticationAgent(provider),
+    AuthorizationAgent(provider),
+    AuditAgent(provider),
+    RiskAnomalyAgent(provider)
+)
+
 
 app = FastAPI(
     title="RoseTech Agentic AI Identity and Access Management App",
@@ -18,9 +32,24 @@ app = FastAPI(
     ),
 )
 
-repo = Repository()
-workflow = IAMWorkflow(repo)
+class IdentityRequest(BaseModel):
 
+    user_id: str
+
+    identification_status: str = "PENDING"
+
+    authentication_status: str = "PENDING"
+
+    authorization_status: str = "PENDING"
+
+    audit_status: str = "PENDING"
+
+    risk_score: int = 0
+
+    playbook: str | None = None
+
+    recommended_actions: list = Field(default_factory=list)
+    agent_trace: list = Field(default_factory=list)
 
 class AccessEvent(BaseModel):
     user_id: str
@@ -34,11 +63,9 @@ class AccessEvent(BaseModel):
     occurred_at: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
 
 @app.get("/")
 def root() -> dict[str, str]:
@@ -49,6 +76,12 @@ def root() -> dict[str, str]:
         "health": "/health",
     }
 
+@app.get("/demo/run-identity-lifecycle/{user_id}")
+async def demo_identity_lifecycle_repo(user_id: str):
+          request = IdentityRequest(user_id=user_id)
+          result = orchestrator.process(request)
+          return result
+    
 @app.get("/policies")
 def policies(stage: str | None = None):
     return repo.policies(stage)
@@ -126,22 +159,3 @@ def demo_run():
             "metadata": {"demo": True},
         }
     )
-
-def demo_run():
-
-    payload = IdentityRequest(
-        user_id="EMP001",
-        country="RU",
-        device="UNKNOWN",
-        login_time="02:15"
-    )
-
-    result = orchestrator.process(
-        payload
-    )
-
-    return {
-        "request": payload,
-        "agent_decisions": result.agent_trace,
-        "response": result
-    }
