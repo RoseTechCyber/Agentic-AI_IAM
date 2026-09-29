@@ -10,20 +10,42 @@ from pydantic import Field
 
 class ContextProvider:
     def __init__(self):
+        # Get database URL from environment or use default
+        db_url = os.getenv("DATABASE_URL", "sqlite:///./data/schemas/iam_datastore.db")
 
-        self.conn = sqlite3.connect or os.getenv(
-            "conn","sqlite:///./data/schemas/iam_datastore.db",
-             check_same_thread=False)
-        self.path = self.conn.removeprefix("sqlite:///")
-        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        # Extract the file path from the URL (remove sqlite:/// prefix)
+        if db_url.startswith("sqlite:///"):
+            db_path = db_url.removeprefix("sqlite:///")
+        else:
+            raise ValueError("Only sqlite:/// URLs are supported in this implementation.")
+
+        # Ensure parent directory exists
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Connect to SQLite database
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+
+        # Initialize schema if needed
+        self._initialize_schema()
+
+    def _initialize_schema(self):
+        """Load and execute schema from iam_datastore.sql."""
+        schema_file = Path(__file__).with_name("iam_datastore.sql")
+        if schema_file.exists():
+            iam_datastore.sql= schema_file.read_text(encoding="utf-8")
+            with self.conn:  # Automatically commits or rolls back
+                self.conn.executescript(iam_datastore.sql)
+        else:
+            raise FileNotFoundError(f"Schema file not found: {schema_file}")
+
+    def close(self):
+        """Close the database connection."""
+        if self.conn:
+            self.conn.close()
         
-        with self.conn() as db:
-            schema = Path(__file__).with_name("iam_datastore.sql").read_text()
-            db.executescript(schema)
-            
-        self.conn.row_factory = sqlite3.Row
-
-    def get_identity(self, user_id):
+           
+  def get_identity(self, user_id):
 
         cur = self.conn.cursor()
 
