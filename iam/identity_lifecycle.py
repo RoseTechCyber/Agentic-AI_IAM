@@ -8,13 +8,6 @@ from typing import Any, Iterator
 from datetime import datetime
 from pydantic import Field
  
-
-
-print(os.getcwd())
-print(os.path.exists("iam_datastore.db"))
-
-
-
 class ContextProvider:
     def __init__(self):
 
@@ -135,18 +128,22 @@ class ContextProvider:
 
     def __init__(
         self,
-        identification_agent,
-        authentication_agent,
-        authorization_agent,
-        audit_agent,
-        risk_agent
+        IdentificationAgent,
+        AuthenticationAgent,
+        AuthorizationAgent,
+        AuditAgent,
+        RiskAnomalyAgent,
+        WorkIQAgent,
+        EventAgent
     ):
-        self.identification = identification_agent
-        self.authentication = authentication_agent
-        self.authorization = authorization_agent
-        self.audit = audit_agent
-        self.risk = risk_agent
-
+        self.identification = IdentificationAgent
+        self.authentication = AuthenticationAgent
+        self.authorization = AuthorizationAgent
+        self.audit = AuditAgent
+        self.risk = RiskAnomalyAgent
+        self.workiq =  WorkIQAgent
+        self.events = EventAgent
+        
     def process(self, request):
 
         response = request
