@@ -7,16 +7,16 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from .repository import Repository
 from .workflow import IAMWorkflow
-from .identity_lifecycle import ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent
-
-provider = ContextProvider
+from .identity_lifecycle import ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent, WorkIQAgent, EventsAgent
 
 orchestrator = LifecycleOrchestrator(
-    IdentificationAgent(provider),
-    AuthenticationAgent(provider),
-    AuthorizationAgent(provider),
-    AuditAgent(provider),
-    RiskAnomalyAgent(provider)
+    IdentificationAgent,
+    AuthenticationAgent,
+    AuthorizationAgent,
+    AuditAgent,
+    RiskAnomalyAgent,
+    WorkIQAgent,
+    EventsAgent
 )
 
 
