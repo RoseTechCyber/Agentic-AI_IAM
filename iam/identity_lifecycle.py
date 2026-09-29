@@ -45,9 +45,8 @@ class ContextProvider:
             self.conn.close()
         
            
-   def get_identity(self, user_id):
-
-        cur = self.conn.cursor()
+    def get_identity(self, user_id):
+    cur = self.conn.cursor()
 
         cur.execute(
             """
