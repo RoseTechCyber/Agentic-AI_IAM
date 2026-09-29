@@ -76,7 +76,7 @@ def root() -> dict[str, str]:
         "health": "/health",
     }
 
-@app.get("/demo/run-identity-lifecycle/{user_id}")
+@app.get("/demo/run-identity_lifecycle_repo/{user_id}")
 async def demo_identity_lifecycle_repo(user_id: str):
           request = IdentityRequest(user_id=user_id)
           result = orchestrator.process(request)
