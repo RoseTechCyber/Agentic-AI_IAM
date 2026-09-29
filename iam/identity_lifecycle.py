@@ -38,7 +38,6 @@ class ContextProvider:
         
     def get_recent_access_events(self, user_id):
         cur = self.conn.cursor()
- 
         cur.execute("""
             SELECT *
             FROM access_events_trigger
@@ -46,13 +45,10 @@ class ContextProvider:
             ORDER BY id DESC
             LIMIT 5
             """, (user_id,))
- 
         return cur.fetchall()
         
     def get_latest_access_event(self, user_id):
-
         cur = self.conn.cursor()
-
         cur.execute("""
             SELECT *
             FROM access_events
@@ -60,7 +56,6 @@ class ContextProvider:
             ORDER BY occurred_at DESC
             LIMIT 1
             """, (user_id,))
-
         return cur.fetchone()
         
     def get_user_permissions(self, user_id):
