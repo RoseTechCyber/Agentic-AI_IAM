@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Iterator
 from datetime import datetime
 from pydantic import Field
- 
 
 class ContextProvider:
     def __init__(self):
