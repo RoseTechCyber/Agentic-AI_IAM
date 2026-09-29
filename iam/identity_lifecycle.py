@@ -46,7 +46,7 @@ class ContextProvider:
         
            
     def get_identity(self, user_id):
-    cur = self.conn.cursor()
+        cur = self.conn.cursor()
 
         cur.execute(
             """
@@ -335,7 +335,7 @@ class RiskAnomalyAgent:
 
         if event:
             occurred_at = (event["occurred_at"].replace("Z", "+00:00")
-)
+            )
             login_hour = datetime.fromisoformat(occurred_at).hour
 
             if login_hour < 7 or login_hour > 19:
