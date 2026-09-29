@@ -8,6 +8,7 @@ from typing import Any, Iterator
 from datetime import datetime
 from pydantic import Field
  
+
 class ContextProvider:
     def __init__(self):
 
@@ -17,6 +18,9 @@ class ContextProvider:
         )
 
         self.conn.row_factory = sqlite3.Row
+        with self.conn() as db:
+            schema = Path(__file__).with_name("iam_datastore.sql").read_text()
+            db.executescript(schema)
 
     def get_identity(self, user_id):
 
