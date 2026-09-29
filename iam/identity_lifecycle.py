@@ -207,10 +207,11 @@ class AuthenticationAgent:
     def execute(self, request):
         if request.identification_status != "PASSED":
             request.authentication_status = "BLOCKED"
+           
             request.agent_trace.append({
                 "agent":"Authentication",
                 "decision":"BLOCKED",
-                "reason":"Authentication Failed"
+                "reason":"Authentication Failed"}
             )
             return request
        
