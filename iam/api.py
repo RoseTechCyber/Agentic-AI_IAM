@@ -47,19 +47,12 @@ workflow = IAMWorkflow(repo)
 class IdentityRequest(BaseModel):
 
     user_id: str
-
     identification_status: str = "PENDING"
-
     authentication_status: str = "PENDING"
-
     authorization_status: str = "PENDING"
-
     audit_status: str = "PENDING"
-
     risk_score: int = 0
-
     playbook: str | None = None
-
     recommended_actions: list = Field(default_factory=list)
     agent_trace: list = Field(default_factory=list)
 
