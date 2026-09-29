@@ -12,7 +12,7 @@ from .workflow import IAMWorkflow
 from .identity_lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent)
 
 repo = Repository()
-provider = ContextProvider(repo
+provider = ContextProvider(repo)
 workflow = IAMWorkflow(repo)
 
 orchestrator = LifecycleOrchestrator(
