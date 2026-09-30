@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Any
 from .repository import Repository
 from .workflow import IAMWorkflow
-import repo from repository
 
 
 class ContextProvider:
