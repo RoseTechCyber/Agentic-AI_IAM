@@ -15,8 +15,8 @@ orchestrator = LifecycleOrchestrator(
     IdentificationAgent(provider),
     AuthenticationAgent(provider),
     AuthorizationAgent(provider),
-    AuditAgent(repo),
-    RiskAgent(workflow)
+    AuditAgent(provider),
+    RiskAgent(provider)
 )
 
 app = FastAPI(
