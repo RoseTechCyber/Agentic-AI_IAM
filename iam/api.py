@@ -9,16 +9,16 @@ from .repository import Repository
 from .workflow import IAMWorkflow
 from .identity_lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent, WorkIQAgent, EventAgent
 )
+repo = Repository()
+workflow = IAMWorkflow(repo)
+provider = ContextProvider(repo)
 orchestrator = LifecycleOrchestrator(
-    IdentificationAgent,
-    AuthenticationAgent,
-    AuthorizationAgent,
-    AuditAgent,
-    RiskAnomalyAgent,
-    WorkIQAgent,
-    EventAgent
+    IdentificationAgent(provider),
+    AuthenticationAgent(provider),
+    AuthorizationAgent(provider),
+    AuditAgent(repo),
+    RiskAgent(workflow)
 )
-
 
 app = FastAPI(
     title="RoseTech Agentic AI Identity and Access Management App",
@@ -31,7 +31,6 @@ app = FastAPI(
 
 repo = Repository()
 workflow = IAMWorkflow(repo)
-
 
 class IdentityRequest(BaseModel):
 
@@ -70,14 +69,20 @@ def root() -> dict[str, str]:
         "health": "/health",
     }
 
-@app.get("/demo/run-identity_lifecycle/{user_id}")
-async def demo_identity_lifecycle(user_id: str):
+@app.get(
+    "/demo/run-identity-lifecycle/{user_id}"
+)
+async def demo_identity_lifecycle(
+    user_id: str
+):
 
     request = IdentityRequest(
         user_id=user_id
     )
 
-    return orchestrator.process(request)
+    return orchestrator.process(
+        request
+    )
     
 
 @app.get("/policies")
