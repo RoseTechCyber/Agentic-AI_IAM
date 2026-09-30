@@ -217,3 +217,19 @@ class RiskAgent:
 
         return request
 		
+class LifecycleOrchestrator:
+
+    def __init__(
+        self,
+        identification_agent,
+        authentication_agent,
+        authorization_agent,
+        audit_agent,
+        workflow
+    ):
+
+        self.identification = identification_agent
+        self.authentication = authentication_agent
+        self.authorization = authorization_agent
+        self.audit = audit_agent
+        self.workflow = workflow
