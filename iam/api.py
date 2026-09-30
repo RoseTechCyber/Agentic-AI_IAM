@@ -30,9 +30,6 @@ app = FastAPI(
     ),
 )
 
-repo = Repository()
-workflow = IAMWorkflow(repo)
-
 class IdentityRequest(BaseModel):
 
     user_id: str
