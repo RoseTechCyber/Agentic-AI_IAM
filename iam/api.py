@@ -8,9 +8,11 @@ from pydantic import BaseModel, Field
 from .repository import Repository
 from .workflow import IAMWorkflow
 from .lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAgent)
+
 repo = Repository()
 workflow = IAMWorkflow(repo)
 provider = ContextProvider(repo)
+
 orchestrator = LifecycleOrchestrator(
     IdentificationAgent(provider),
     AuthenticationAgent(provider),
@@ -168,4 +170,19 @@ def demo_run():
         }
         
 
+    )
+
+@app.get(
+    "/demo/run-lifecycle/{user_id}"
+)
+async def demo_identity_lifecycle(
+    user_id: str
+):
+
+    request = IdentityRequest(
+        user_id=user_id
+    )
+
+    return orchestrator.process(
+        request
     )
