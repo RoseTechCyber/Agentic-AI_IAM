@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from .repository import Repository
 from .workflow import IAMWorkflow
-from .identity_lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent, WorkIQAgent, EventAgent
+from .lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent, WorkIQAgent, EventAgent
 )
 repo = Repository()
 workflow = IAMWorkflow(repo)
@@ -70,7 +70,7 @@ def root() -> dict[str, str]:
     }
 
 @app.get(
-    "/demo/run-identity-lifecycle/{user_id}"
+    "/demo/run-lifecycle/{user_id}"
 )
 async def demo_identity_lifecycle(
     user_id: str
