@@ -70,22 +70,6 @@ def root() -> dict[str, str]:
         "health": "/health",
     }
 
-@app.get(
-    "/demo/run-lifecycle/{user_id}"
-)
-async def demo_identity_lifecycle(
-    user_id: str
-):
-
-    request = IdentityRequest(
-        user_id=user_id
-    )
-
-    return orchestrator.process(
-        request
-    )
-    
-
 @app.get("/policies")
 def policies(stage: str | None = None):
     return repo.policies(stage)
