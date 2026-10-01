@@ -7,19 +7,9 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from .repository import Repository
 from .workflow import IAMWorkflow
-from .lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAgent)
 
 repo = Repository()
 workflow = IAMWorkflow(repo)
-provider = ContextProvider(repo)
-
-orchestrator = LifecycleOrchestrator(
-    IdentificationAgent(provider),
-    AuthenticationAgent(provider),
-    AuthorizationAgent(provider),
-    AuditAgent(provider),
-    RiskAgent(provider)
-)
 
 app = FastAPI(
     title="RoseTech Agentic AI Identity and Access Management App",
@@ -66,6 +56,11 @@ def root() -> dict[str, str]:
         "docs": "/docs",
         "health": "/health",
     }
+
+@app.get(
+"/demo/run-orchestrate_flow/{user_id}")
+async def demo_run_orchestrate_flow(user_id: str):
+return demo_orchestrator.run(user_id)
 
 @app.get("/policies")
 def policies(stage: str | None = None):
