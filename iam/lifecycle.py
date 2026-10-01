@@ -204,29 +204,29 @@ class RiskAgent:
     	request.risk_score = result.get("risk_score", 0)
 
 		request.recommended_actions = [
-    	reason
-    	for reason in result.get("reasons", [])
+    		reason
+    	    for reason in result.get("reasons", [])
     		if reason
 		]
 
 		case = result.get("case")
 
-			if case:
-    	recommendation = case.get("recommendation")
+		if case:
+    		recommendation = case.get("recommendation")
 
     		if recommendation:
-        request.recommended_actions.append(
+        		request.recommended_actions.append(
             recommendation
-        )
+        	)
 
     	playbook = case.get("playbook")
 
-    		if playbook:
-        request.playbook = playbook.get("name")
+    	if playbook:
+        		request.playbook = playbook.get("name")
 
-        request.recommended_actions.extend(
-            playbook.get("steps", [])
-        )
+       			 request.recommended_actions.extend(
+           				 playbook.get("steps", [])
+        		)
 
 		
 class LifecycleOrchestrator:
