@@ -191,8 +191,7 @@ class RiskAgent:
             {
                 "user_id": request.user_id,
                 "event_type": "login",
-                "occurred_at":
-                    datetime.utcnow().isoformat(),
+                "occurred_at": datetime.utcnow().isoformat(),
                 "device_trust": 0.3,
                 "mfa_satisfied": False,
                 "metadata": {
@@ -203,17 +202,20 @@ class RiskAgent:
 
         request.risk_score = result["risk_score"]
 
-        request.recommended_actions = []
+        request.recommended_actions = result.get(
+            "recommended_actions",
+            []
+        )
 
-        if result["case"]:
+        if result.get("case"):
 
-            playbook = result["case"]["playbook"]
+            playbook = result["case"].get("playbook")
 
             if playbook:
-
                 request.playbook = playbook["name"]
 
         return request
+
 		
 class LifecycleOrchestrator:
 
