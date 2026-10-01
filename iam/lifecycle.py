@@ -223,39 +223,31 @@ class LifecycleOrchestrator:
         authentication_agent,
         authorization_agent,
         audit_agent,
-        workflow
+        risk_agent
     ):
-
         self.identification = identification_agent
         self.authentication = authentication_agent
         self.authorization = authorization_agent
         self.audit = audit_agent
-        self.workflow = workflow
+        self.risk = risk_agent
 
-	def process(self, request):
-        identity = self.identification.identify(request)
+    def process(self, request):
 
-        authentication = self.authentication.authenticate(
-            request,
-            identity
-        )
+        request = self.identification.execute(request)
 
-        authorization = self.authorization.authorize(
-            request,
-            identity
-        )
+        if request.identification_status != "PASSED":
+            return self.audit.execute(request)
 
-        result = self.workflow.execute(
-            request,
-            identity,
-            authentication,
-            authorization
-        )
+        request = self.authentication.execute(request)
 
-        self.audit.record(
-            request=request,
-            identity=identity,
-            result=result
-        )
+        if request.authentication_status != "PASSED":
+            return self.audit.execute(request)
 
-        return result
+        request = self.authorization.execute(request)
+
+        if request.authorization_status != "PASSED":
+            return self.audit.execute(request)
+
+        request = self.risk.execute(request)
+
+        return self.audit.execute(request)
