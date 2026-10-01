@@ -46,17 +46,6 @@ class AccessEvent(BaseModel):
     occurred_at: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-class DemoOrchestrator:
-
-    def run(self, user_id):
-
-        return {
-            "user_id": user_id,
-            "message": "Orchestrator executed"
-        }
-
-
-demo_orchestrator = DemoOrchestrator()
 
 @app.get("/health")
 def health() -> dict[str, str]:
@@ -73,7 +62,7 @@ def root() -> dict[str, str]:
 
 @app.get(
 "/demo/run-orchestrate_flow/{user_id}")
-async def demo_run_orchestrate_flow(user_id: str):
+async def demo_orchestrate_flow(user_id: str):
          return demo_orchestrator.run(user_id)
 
 @app.get("/policies")
