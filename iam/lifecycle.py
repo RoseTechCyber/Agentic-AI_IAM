@@ -172,14 +172,14 @@ class AuditAgent:
                 "stage": "audit",
                 "action": "evaluate",
                 "decision": "allow",
-                "occurred_at":
-                    datetime.utcnow().isoformat()
+                "occurred_at": datetime.utcnow().isoformat()
             }
         )
 
         request.audit_status = "PASSED"
 
         return request
+
 
 class RiskAgent:
 
@@ -202,6 +202,8 @@ class RiskAgent:
         )
 
         request.risk_score = result["risk_score"]
+
+        request.risk_status = "PENDING"
 
         request.recommended_actions = result.get(
             "recommended_actions",
