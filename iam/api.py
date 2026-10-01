@@ -74,7 +74,7 @@ def root() -> dict[str, str]:
 @app.get(
 "/demo/run-orchestrate_flow/{user_id}")
 async def demo_run_orchestrate_flow(user_id: str):
-         return demo_run_orchestrate_flow(user_id: str):
+         return demo_orchestrator.run(user_id)
 
 @app.get("/policies")
 def policies(stage: str | None = None):
