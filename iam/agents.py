@@ -8,7 +8,6 @@ import httpx
 
 from .repository import Repository
 
-
 class DatabaseIQ:
     """Reads user facts, access matrices, and database playbooks."""
 
@@ -156,8 +155,6 @@ class LocalRAG:
 
     @staticmethod
     def _tokens(text: str) -> set[str]:
-        # basic normalization: lowercase, strip punctuation, split on whitespace
-        # ignore very short tokens
         return {
             word.lower().strip(".,:;()[]{}\"'`")
             for word in text.split()
@@ -165,58 +162,77 @@ class LocalRAG:
         }
 
     def search(
-    self,
-    query: str,
-    limit: int = 3,
-    stage: str | None = None,
-    min_similarity: float = 0.05,
-) -> list[dict[str, Any]]:
+        self,
+        query: str,
+        limit: int = 3,
+        stage: str | None = None,
+        min_similarity: float = 0.05,
+    ) -> list[dict[str, Any]]:
+
         query_tokens = self._tokens(query)
+
+        if not query_tokens:
+            return []
+
         scored: list[tuple[float, dict[str, Any]]] = []
 
-        sql = "SELECT id, name, stage, text, priority FROM policies WHERE enabled=1"
+        sql = """
+            SELECT
+                id,
+                name,
+                stage,
+                text,
+                priority
+            FROM policies
+            WHERE enabled=1
+        """
+
         params: tuple = ()
+
         if stage:
             sql += " AND (stage=? OR stage='any')"
             params = (stage,)
 
         rows = self.repo.execute(sql, params)
 
-
         for row in rows:
-    document_tokens = self._tokens(row["text"])
 
-    score = 0.0
-    union = query_tokens | document_tokens
+            document_tokens = self._tokens(row["text"])
 
-    if union:
-        score = len(query_tokens & document_tokens) / len(union)
+            union = query_tokens | document_tokens
 
-    scored.append((score, row))
+            score = 0.0
 
-scored.sort(
-    key=lambda item: (
-        item[0],
-        item[1].get("priority", 0)
-    ),
-    reverse=True
-)
+            if union:
+                score = (
+                    len(query_tokens & document_tokens)
+                    / len(union)
+                )
 
-results = []
+            # Ignore policies that are not sufficiently relevant.
+            if score < min_similarity:
+                continue
 
-for score, row in scored:
+            scored.append((score, row))
 
-    if score < min_similarity:
-        continue
+        scored.sort(
+            key=lambda item: (
+                item[0],
+                item[1].get("priority", 0),
+            ),
+            reverse=True,
+        )
 
-    results.append(
-        {
-            **row,
-            "similarity": round(score, 4),
-        }
-    )
+        results = []
 
-    if len(results) >= limit:
-        break
+        for score, row in scored[:limit]:
 
-return results
+            results.append(
+                {
+                    **row,
+                    "similarity": round(score, 4),
+                }
+            )
+
+        return results
+
