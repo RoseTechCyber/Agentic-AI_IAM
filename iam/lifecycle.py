@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Any
 from .repository import Repository
 from .workflow import IAMWorkflow
+from dataclasses import dataclass, field
 
+repo = Repository()
 
 class ContextProvider:
 
@@ -29,7 +31,7 @@ class ContextProvider:
         rows = self.repo.execute(
             """
             SELECT *
-            FROM access_events
+            FROM access_events_trigger
             WHERE identity_id = ?
             ORDER BY occurred_at DESC
             LIMIT 1
