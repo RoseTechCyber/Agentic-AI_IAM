@@ -166,8 +166,5 @@ def demo_run():
 
 @app.get("/demo/run-lifecycle/{user_id}")
 async def demo_lifecycle(user_id: str):
-    request = IdentityRequest(
-        user_id=user_id
-    )
-
-    return orchestrator.process(request)
+    request = IdentityRequest(user_id=user_id)
+    return demo_orchestrator.run(request)
