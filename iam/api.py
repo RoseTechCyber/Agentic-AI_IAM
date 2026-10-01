@@ -151,7 +151,7 @@ def rag_search(
 def demo_run():
     return workflow.evaluate(
         {
-            "user_id": "u-100",
+            "user_id": "usr-00001",
             "event_type": "login",
             "source_ip": "203.0.113.10",
             "device_trust": 0.2,
