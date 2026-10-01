@@ -201,26 +201,27 @@ class RiskAgent:
             }
         )
 
-      request.risk_score = result.get("risk_score", 0)
+        request.risk_score = result.get("risk_score", 0)
 
-	  request.recommended_actions = [
+	    request.recommended_actions = [
     		reason
     	    for reason in result.get("reasons", [])
-    		if reason ]
+    		if reason 
+		]
 
-	  case = result.get("case")
+	    case = result.get("case")
 
-	  if case:
+	    if case:
     		recommendation = case.get("recommendation")
 
     		if recommendation:
         		request.recommended_actions.append(
             recommendation
-        	)
+        	    )
 
-    	   playbook = case.get("playbook")
+    	    playbook = case.get("playbook")
 
-    	   if playbook:
+    	    if playbook:
         		request.playbook = playbook.get("name")
 
        			request.recommended_actions.extend(
