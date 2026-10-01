@@ -201,23 +201,32 @@ class RiskAgent:
             }
         )
 
-        request.risk_score = result["risk_score"]
+    request.risk_score = result.get("risk_score", 0)
 
-        request.risk_status = "PENDING"
+	request.recommended_actions = [
+    reason
+    for reason in result.get("reasons", [])
+    if reason
+]
 
-        request.recommended_actions = result.get(
-            "recommended_actions",
-            []
+	case = result.get("case")
+
+	if case:
+    recommendation = case.get("recommendation")
+
+    if recommendation:
+        request.recommended_actions.append(
+            recommendation
         )
 
-        if result.get("case"):
+    playbook = case.get("playbook")
 
-            playbook = result["case"].get("playbook")
+    if playbook:
+        request.playbook = playbook.get("name")
 
-            if playbook:
-                request.playbook = playbook["name"]
-
-        return request
+        request.recommended_actions.extend(
+            playbook.get("steps", [])
+        )
 
 		
 class LifecycleOrchestrator:
