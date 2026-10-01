@@ -219,15 +219,15 @@ class LifecycleOrchestrator:
 
     def __init__(
         self,
-        IdentificationAgent,
-        AuthenticationAgent,
-        AuthorizationAgent,
-        AuditAgent,
+        identification_agent,
+        authentication_agent,
+        authorization_agent,
+        audit_agent,
         workflow
     ):
 
-        self.identification = IdentificationAgent
-        self.authentication = AuthenticationAgent
-        self.authorization = AuthorizationAgent
-        self.audit = AuditAgent
+        self.identification = identification_agent
+        self.authentication = authentication_agent
+        self.authorization = authorization_agent
+        self.audit = audit_agent
         self.workflow = workflow
