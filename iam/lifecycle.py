@@ -167,7 +167,7 @@ class AuditAgent:
             {
                 "id": str(uuid.uuid4()),
                 "identity_id": request.user_id,
-                "event_type": "identity_lifecycle",
+                "event_type": "lifecycle",
                 "stage": "audit",
                 "action": "evaluate",
                 "decision": "allow",
@@ -219,15 +219,15 @@ class LifecycleOrchestrator:
 
     def __init__(
         self,
-        identification_agent,
-        authentication_agent,
-        authorization_agent,
-        audit_agent,
+        IdentificationAgent,
+        AuthenticationAgent,
+        AuthorizationAgent,
+        AuditAgent,
         workflow
     ):
 
-        self.identification = identification_agent
-        self.authentication = authentication_agent
-        self.authorization = authorization_agent
-        self.audit = audit_agent
+        self.identification = IdentificationAgent
+        self.authentication = AuthenticationAgent
+        self.authorization = AuthorizationAgent
+        self.audit = AuditAgent
         self.workflow = workflow
