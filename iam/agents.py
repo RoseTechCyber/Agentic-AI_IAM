@@ -165,11 +165,12 @@ class LocalRAG:
         }
 
     def search(
-        self,
-        query: str,
-        limit: int = 3,
-        stage: str | None = None,
-    ) -> list[dict[str, Any]]:
+    self,
+    query: str,
+    limit: int = 3,
+    stage: str | None = None,
+    min_similarity: float = 0.05,
+) -> list[dict[str, Any]]:
         query_tokens = self._tokens(query)
         scored: list[tuple[float, dict[str, Any]]] = []
 
@@ -181,24 +182,41 @@ class LocalRAG:
 
         rows = self.repo.execute(sql, params)
 
+
         for row in rows:
-            document_tokens = self._tokens(row["text"])
-            # Jaccard similarity
-            score = 0.0
-            union = query_tokens | document_tokens
-            if union:
-                score = len(query_tokens & document_tokens) / len(union)
-            scored.append((score, row))
+    document_tokens = self._tokens(row["text"])
 
-        # sort primarily by score, secondarily by policy priority so low-similarity but high-priority policies surface
-        scored.sort(key=lambda item: (item[0], item[1].get("priority", 0)), reverse=True)
+    score = 0.0
+    union = query_tokens | document_tokens
 
-        results = []
-        for score, row in scored[:limit]:
-            results.append(
-                {
-                    **row,
-                    "similarity": round(score, 4),
-                }
-            )
-        return results
+    if union:
+        score = len(query_tokens & document_tokens) / len(union)
+
+    scored.append((score, row))
+
+scored.sort(
+    key=lambda item: (
+        item[0],
+        item[1].get("priority", 0)
+    ),
+    reverse=True
+)
+
+results = []
+
+for score, row in scored:
+
+    if score < min_similarity:
+        continue
+
+    results.append(
+        {
+            **row,
+            "similarity": round(score, 4),
+        }
+    )
+
+    if len(results) >= limit:
+        break
+
+return results
