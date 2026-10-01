@@ -24,9 +24,6 @@ orchestrator = LifecycleOrchestrator(
     RiskAgent(workflow)
 )
 
-
-
-
 app = FastAPI(
     title="RoseTech Agentic AI Identity and Access Management App",
     version="0.2.0",
@@ -39,7 +36,6 @@ app = FastAPI(
 class IdentityRequest(BaseModel):
 
     user_id: str
-
     identification_status: str = "PENDING"
     authentication_status: str = "PENDING"
     authorization_status: str = "PENDING"
@@ -47,19 +43,10 @@ class IdentityRequest(BaseModel):
     audit_status: str = "PENDING"
 
     risk_score: int = 0
-
-    decision: str = "PENDING"
-
     playbook: str | None = None
 
-    recommended_actions: list = Field(
-        default_factory=list
-    )
-
-    agent_trace: list = Field(
-        default_factory=list
-    )
-
+    recommended_actions: list = Field(default_factory=list)
+    agent_trace: list = Field( default_factory=list)
 
 class AccessEvent(BaseModel):
     user_id: str
