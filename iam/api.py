@@ -8,10 +8,23 @@ from pydantic import BaseModel, Field
 from .repository import Repository
 from .workflow import IAMWorkflow
 from .orchestrate_flow import DemoOrchestrator
+from .lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent)
+
 
 repo = Repository()
 workflow = IAMWorkflow(repo)
 demo_orchestrator = DemoOrchestrator()
+provider  = ContextProvider(repo)
+
+orchestrator = LifecycleOrchestrator(
+    IdentificationAgent(provider),
+    AuthenticationAgent(provider),
+    AuthorizationAgent(provider),
+    AuditAgent(provider),
+    RiskAnomalyAgent(provider)
+)
+
+
 
 
 app = FastAPI(
@@ -151,17 +164,7 @@ def demo_run():
 
     )
 
-@app.get(
-    "/demo/run-lifecycle/{user_id}"
-)
-async def demo_identity_lifecycle(
-    user_id: str
-):
-
-    request = IdentityRequest(
-        user_id=user_id
-    )
-
-    return orchestrator.process(
-        request
-    )
+@app.get("/demo/run-lifecycle/{user_id}")
+async def demo_lifecycle(user_id: str):
+    request = IdentityRequest(user_id=user_id)
+    return orchestrator.process(request)
