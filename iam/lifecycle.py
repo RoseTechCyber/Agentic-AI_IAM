@@ -2,11 +2,7 @@ import json
 import httpx
 from datetime import datetime
 from typing import Any
-from .repository import Repository
-from .workflow import IAMWorkflow
 from dataclasses import dataclass, field
-
-repo = Repository()
 
 class ContextProvider:
 
