@@ -38,11 +38,6 @@ app = FastAPI(
 
 class IdentityRequest(BaseModel):
 
-   from pydantic import BaseModel, Field
-
-
-class IdentityRequest(BaseModel):
-
     user_id: str
 
     identification_status: str = "PENDING"
