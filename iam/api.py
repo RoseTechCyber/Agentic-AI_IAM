@@ -20,8 +20,8 @@ orchestrator = LifecycleOrchestrator(
     IdentificationAgent(provider),
     AuthenticationAgent(provider),
     AuthorizationAgent(provider),
-    AuditAgent(provider),
-    RiskAgent(provider)
+    AuditAgent(repo),
+    RiskAgent(workflow)
 )
 
 
@@ -164,6 +164,8 @@ def demo_run():
 
     )
 
+
 @app.get("/demo/run-lifecycle/{user_id}")
 async def demo_lifecycle(user_id: str):
-        return orchestrator.process()
+         request = IdentityRequest(user_id=user_id):
+           return orchestrator.process(request)
