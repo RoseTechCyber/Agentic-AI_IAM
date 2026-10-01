@@ -12,7 +12,7 @@ def seed() -> None:
     repo.insert(
         "identities",
         {
-            "id": "u-100",
+            "id": "usr-00045",
             "username": "avery.analyst@example.test",
             "display_name": "Avery Analyst",
             "department": "Finance",
@@ -25,7 +25,7 @@ def seed() -> None:
     repo.insert(
         "identities",
         {
-            "id": "u-200",
+            "id": "usr-00046",
             "username": "morgan.contractor@example.test",
             "display_name": "Morgan Contractor",
             "department": "Engineering",
@@ -80,15 +80,15 @@ def seed() -> None:
         # identity_roles (was user_roles)
         db.execute(
             "INSERT OR IGNORE INTO identity_roles (identity_id, role_id, assigned_at, assigned_by, is_primary) VALUES (?, ?, ?, ?, ?)",
-            ("u-100", "r-employee", now, "seed", 1),
+            ("usr-00045", "r-employee", now, "seed", 1),
         )
         db.execute(
             "INSERT OR IGNORE INTO identity_roles (identity_id, role_id, assigned_at, assigned_by, is_primary) VALUES (?, ?, ?, ?, ?)",
-            ("u-100", "r-finance", now, "seed", 0),
+            ("usr-00045", "r-finance", now, "seed", 0),
         )
         db.execute(
             "INSERT OR IGNORE INTO identity_roles (identity_id, role_id, assigned_at, assigned_by, is_primary) VALUES (?, ?, ?, ?, ?)",
-            ("u-200", "r-employee", now, "seed", 1),
+            ("usr-00046", "r-employee", now, "seed", 1),
         )
 
         # role_permissions (was role_entitlements)
