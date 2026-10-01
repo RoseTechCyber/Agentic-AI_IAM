@@ -9,7 +9,7 @@ class ContextProvider:
     def __init__(self, repo):
         self.repo = repo
 
-    def get_identity(self, identity_id):
+    def get_identity(self, user_id):
 
         rows = self.repo.execute(
             """
@@ -17,12 +17,12 @@ class ContextProvider:
             FROM identities
             WHERE id = ?
             """,
-            (identity_id,)
+            (user_id,)
         )
 
         return rows[0] if rows else None
 
-    def get_latest_event(self, identity_id):
+    def get_latest_event(self, user_id):
 
         rows = self.repo.execute(
             """
@@ -32,12 +32,12 @@ class ContextProvider:
             ORDER BY occurred_at DESC
             LIMIT 1
             """,
-            (identity_id,)
+            (user_id,)
         )
 
         return rows[0] if rows else None
 
-    def get_roles(self, identity_id):
+    def get_roles(self, user_id):
 
         return self.repo.execute(
             """
@@ -47,7 +47,7 @@ class ContextProvider:
             ON ir.role_id = r.id
             WHERE ir.identity_id = ?
             """,
-            (identity_id,)
+            (user_id,)
         )
 	
 class IdentificationAgent:
