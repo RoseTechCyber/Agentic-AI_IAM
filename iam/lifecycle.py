@@ -231,3 +231,31 @@ class LifecycleOrchestrator:
         self.authorization = authorization_agent
         self.audit = audit_agent
         self.workflow = workflow
+
+	def process(self, request):
+        identity = self.identification.identify(request)
+
+        authentication = self.authentication.authenticate(
+            request,
+            identity
+        )
+
+        authorization = self.authorization.authorize(
+            request,
+            identity
+        )
+
+        result = self.workflow.execute(
+            request,
+            identity,
+            authentication,
+            authorization
+        )
+
+        self.audit.record(
+            request=request,
+            identity=identity,
+            result=result
+        )
+
+        return result
