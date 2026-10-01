@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from .repository import Repository
 from .workflow import IAMWorkflow
 from .orchestrate_flow import DemoOrchestrator
-from .lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAnomalyAgent)
+from .lifecycle import (ContextProvider, LifecycleOrchestrator, IdentificationAgent, AuthenticationAgent, AuthorizationAgent, AuditAgent, RiskAgent)
 
 
 repo = Repository()
@@ -21,7 +21,7 @@ orchestrator = LifecycleOrchestrator(
     AuthenticationAgent(provider),
     AuthorizationAgent(provider),
     AuditAgent(provider),
-    RiskAnomalyAgent(provider)
+    RiskAgent(provider)
 )
 
 
