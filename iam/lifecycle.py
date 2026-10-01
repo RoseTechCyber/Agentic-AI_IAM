@@ -201,7 +201,7 @@ class RiskAgent:
             }
         )
 
-    	request.risk_score = result.get("risk_score", 0)
+        request.risk_score = result.get("risk_score", 0)
 
 		request.recommended_actions = [
     		reason
