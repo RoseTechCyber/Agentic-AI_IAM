@@ -11,6 +11,8 @@ from .orchestrate_flow import DemoOrchestrator
 
 repo = Repository()
 workflow = IAMWorkflow(repo)
+demo_orchestrator = DemoOrchestrator()
+
 
 app = FastAPI(
     title="RoseTech Agentic AI Identity and Access Management App",
@@ -44,6 +46,17 @@ class AccessEvent(BaseModel):
     occurred_at: str
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+class DemoOrchestrator:
+
+    def run(self, user_id):
+
+        return {
+            "user_id": user_id,
+            "message": "Orchestrator executed"
+        }
+
+
+demo_orchestrator = DemoOrchestrator()
 
 @app.get("/health")
 def health() -> dict[str, str]:
@@ -61,7 +74,7 @@ def root() -> dict[str, str]:
 @app.get(
 "/demo/run-orchestrate_flow/{user_id}")
 async def demo_run_orchestrate_flow(user_id: str):
-         return DemoOrchestrator.run(user_id)
+         return demo_run_orchestrate_flow(user_id: str):
 
 @app.get("/policies")
 def policies(stage: str | None = None):
